@@ -4,3 +4,4 @@ drf-spectacular
 django-cors-headers
 djangorestframework_simplejwt
 djoser
+python-dotenv

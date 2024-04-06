@@ -20,13 +20,24 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import RedirectView
 from api import urls as app_urls
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path(
         "api-auth/", include("rest_framework.urls")
     ),  # http://127.0.0.1:8000/api-auth/
+    path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.jwt")),  # http://127.0.0.1:8000/auth/
+    path("auth/", include("djoser.urls.authtoken")),
+    path(
+        "api/schema/", SpectacularAPIView.as_view(), name="schema"
+    ),  # http://127.0.0.1:8000/api/schema/
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),  # http://127.0.0.1:8000/api/docs/
     path("api/", include(app_urls)),  # http://127.0.0.1:8000/api/
     path("", RedirectView.as_view(url="/api/", permanent=False)),
 ]
