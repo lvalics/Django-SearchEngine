@@ -1,4 +1,14 @@
-# app/api/views.py
+"""
+This function is responsible for rendering the main view of the application. 
+It fetches data from the database, processes it, and sends it to the 
+template for rendering.
+
+Raises:
+    DatabaseError: If there is an issue fetching data from the database.
+
+Returns:
+    HttpResponse: A HttpResponse object containing the rendered template.
+"""
 import json
 import uuid
 import os.path

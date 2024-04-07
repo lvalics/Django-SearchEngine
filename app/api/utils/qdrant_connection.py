@@ -1,4 +1,13 @@
-import os
+"""
+This function establishes a connection to the Qdrant server. 
+and do all the jobs with Qdrant Vector Search Engine.
+
+Raises:
+    ConnectionError: If the connection to the Qdrant server cannot be established.
+
+Returns:
+    Connection: A connection object to the Qdrant server.
+"""
 import logging
 import time
 from typing import List
@@ -19,6 +28,7 @@ class QdrantConnection:
         )
         self.model = None
         self.client.set_model(EMBEDDINGS_MODEL)
+
 
     def create_collection(self, collection_name: str, vector_size):
         
@@ -103,6 +113,7 @@ class NeuralSearcher:
             prefer_grpc=True, 
         )
         self.client.set_model(EMBEDDINGS_MODEL) 
+
 
     def search(self, text: str, filter_: dict = None) -> List[dict]:
         start_time = time.time()

@@ -20,7 +20,7 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# # Add logging configuration
+# # Add logging configuration 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
