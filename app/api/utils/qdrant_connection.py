@@ -52,6 +52,7 @@ class QdrantConnection:
             raise e
 
 
+    # def insert_vector(self, collection_name, documents, payload, ids):
     def insert_vector(self, collection_name, documents, payload):
         # print(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
         self.client.add(
@@ -59,8 +60,49 @@ class QdrantConnection:
             documents=documents,
             metadata=payload,
             parallel=1,
+            # ids=ids
         )
-        logger.info("Data successfully inserted.")
+        print(f"Inserted {len(documents)} vectors into collection {collection_name}")
+        
+        
+    def update_vector(self, collection_name, id, id_key):
+        
+        records, point_ids = self.client.scroll(
+        collection_name=collection_name,
+        scroll_filter=models.Filter(
+            must=[
+                models.FieldCondition(key=id_key, match=models.MatchValue(value=id)),
+            ]
+        ),
+        limit=int(100),
+        offset=int(0),
+        with_payload=True,
+        with_vectors=False,
+        )
+        
+        print (records)
+        print (point_ids) 
+
+        if records:
+            point_ids = [record.id for record in records]
+            self.client.delete(
+                collection_name=collection_name,
+                points_selector=models.PointIdsList(
+                    points=point_ids,
+                ),
+            )
+            print(f"Deleted points with IDs {point_ids} from collection '{collection_name}'.")
+        else:
+            print(f"No points found for the source '{id}'")
+        
+        
+        # self.client.update(
+        #     collection_name=collection_name,
+        #     documents=documents,
+        #     metadata=payload,
+        #     ids=ids
+        # )
+        # print(f"Updated {len(documents)} vectors into collection {collection_name}")    
       
 class NeuralSearcher:
 
@@ -73,7 +115,7 @@ class NeuralSearcher:
         )
         self.client.set_model(EMBEDDINGS_MODEL) 
 
-    def search(self, text: str, filter_: dict = None) -> dict:
+    def search(self, text: str, filter_: dict = None) -> List[dict]:
         start_time = time.time()
         hits = self.client.query(
             collection_name=self.collection_name,
@@ -81,9 +123,5 @@ class NeuralSearcher:
             query_filter=Filter(**filter_) if filter_ else None,
             limit=5
         )
-        search_time = time.time() - start_time
-        return {
-            "results": [hit.metadata for hit in hits],
-            "search_time": search_time,
-            "hits_found": len(hits)
-        }
+        print(f"Search completed in {time.time() - start_time} seconds. Hits found: {len(hits)}")
+        return [hit.metadata for hit in hits]

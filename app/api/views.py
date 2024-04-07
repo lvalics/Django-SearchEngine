@@ -1,5 +1,6 @@
 # app/api/views.py
 import json
+import uuid
 import os.path
 import logging
 from rest_framework.views import APIView
@@ -9,11 +10,13 @@ from rest_framework import permissions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
+from django.http import JsonResponse
 from api.utils.qdrant_connection import NeuralSearcher
 from api.utils.qdrant_connection import QdrantConnection
 from api.serializers import MessageSerializer
 from app.settings import EMBEDDINGS_MODEL
 from app.permissions import IsOwner
+
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +74,24 @@ def embed_data_into_vector_database(request):
     try:
         qdrant = QdrantConnection()
         # Extracting payload and document from the request data
+        ids = request.data.get("id")
         payload = request.data.get("payload")
         document = request.data.get("data")
         collection_name = request.data.get("collection_name")
-        
+        print (ids)
+        # Attempt to transform non-UUID ids into UUIDs
+        try:
+            # Check if ids is already a valid UUID
+            generated_uuid = uuid.UUID(ids)
+            # Re-validate the generated UUID string to ensure it's in a proper format
+            ids = str(generated_uuid)
+        except ValueError:
+            # If not, generate a UUID based on the id string
+            ids = str(uuid.uuid5(uuid.NAMESPACE_DNS, ids))
+        except TypeError:
+            # If ids is None, generate a new UUID
+            ids = str(uuid.uuid4())
+        print (ids)
 
         if not collection_name:
             return Response(
@@ -88,6 +105,7 @@ def embed_data_into_vector_database(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # qdrant.insert_vector(collection_name, document, [payload], ids)
         qdrant.insert_vector(collection_name, document, [payload])
 
         message = f"Inserted into collection {collection_name} and payload: {json.dumps(payload, indent=2)}"
@@ -98,6 +116,42 @@ def embed_data_into_vector_database(request):
         return Response(
             {"error": f"Failed to insert data due to an internal error. {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def update_data(request):
+    """
+    Update data by deleting the existing point based on the provided id and category, and recreate it with new data.
+    """
+    try:
+        id = request.data.get("id")
+        id_key= request.data.get("id_key")
+        # TODO: Implement category based deletion as second choice.
+        #category = request.data.get("category")
+        collection_name = request.data.get("collection_name")
+
+        if not id or not collection_name:
+            return Response(
+                {"error": "id, and collection_name are required fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Initialize Qdrant connection
+        qdrant = QdrantConnection()
+        qdrant.update_vector(collection_name, id, id_key)
+        embed_data_into_vector_database(request)
+        
+        
+        return Response(
+            {"message": "Data points deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
