@@ -1,6 +1,14 @@
-{"name":"SaferCodes","images":"https:\/\/safer.codes\/img\/brand\/logo-icon.png","alt":"SaferCodes Logo QR codes generator system forms for COVID-19","description":"QR codes systems for COVID-19.\nSimple tools for bars, restaurants, offices, and other small proximity businesses.","link":"https:\/\/safer.codes","city":"Chicago"}
-{"name":"Human Practice","images":"https:\/\/d1qb2nb5cznatu.cloudfront.net\/startups\/i\/373036-94d1e190f12f2c919c3566ecaecbda68-thumb_jpg.jpg?buster=1396498835","alt":"Human Practice -  health care information technology","description":"Point-of-care word of mouth\nPreferral is a mobile platform that channels physicians\u2019 interest in networking with their peers to build referrals within a hospital system.\nHospitals are in a race to employ physicians, even though they lose billions each year ($40B in 2014) on employment. Why ...","link":"http:\/\/humanpractice.com","city":"Chicago"}
-{"name":"StyleSeek","images":"https:\/\/d1qb2nb5cznatu.cloudfront.net\/startups\/i\/3747-bb0338d641617b54f5234a1d3bfc6fd0-thumb_jpg.jpg?buster=1329158692","alt":"StyleSeek -  e-commerce fashion mass customization online shopping","description":"Personalized e-commerce for lifestyle products\nStyleSeek is a personalized e-commerce site for lifestyle products.\nIt works across the style spectrum by enabling users (both men and women) to create and refine their unique StyleDNA.\nStyleSeek also promotes new products via its email newsletter, 100% personalized ...","link":"http:\/\/styleseek.com","city":"Chicago"}
-{"name":"Scout","images":"https:\/\/d1qb2nb5cznatu.cloudfront.net\/startups\/i\/190790-dbe27fe8cda0614d644431f853b64e8f-thumb_jpg.jpg?buster=1389652078","alt":"Scout -  security consumer electronics internet of things","description":"Hassle-free Home Security\nScout is a self-installed, wireless home security system. We've created a more open, affordable and modern system than what is available on the market today. With month-to-month contracts and portable devices, Scout is a renter-friendly solution for the other ...","link":"http:\/\/www.scoutalarm.com","city":"Chicago"}
-{"name":"Invitation codes","images":"https:\/\/invitation.codes\/img\/inv-brand-fb3.png","alt":"Invitation App - Share referral codes community ","description":"The referral community\nInvitation App is a social network where people post their referral codes and collect rewards on autopilot.","link":"https:\/\/invitation.codes","city":"Chicago"}
-{"name":"Hyde Park Angels","images":"https:\/\/d1qb2nb5cznatu.cloudfront.net\/startups\/i\/61114-35cd9d9689b70b4dc1d0b3c5f11c26e7-thumb_jpg.jpg?buster=1427395222","alt":"Hyde Park Angels - ","description":"Hyde Park Angels is the largest and most active angel group in the Midwest. With a membership of over 100 successful entrepreneurs, executives, and venture capitalists, the organization prides itself on providing critical strategic expertise to entrepreneurs and ...","link":"http:\/\/hydeparkangels.com","city":"Chicago"}
+{
+   "payload": {
+     "metadata": "Hyde Park Angels is the largest and most active angel group in the Midwest. With a membership of over 100 successful entrepreneurs, executives, and venture capitalists, the organization prides itself on providing critical strategic expertise to entrepreneurs and ...",
+     "companyID": "1234"
+   },
+   "data": {
+     "name": "Hyde Park Angels",
+     "images": "https://d1qb2nb5cznatu.cloudfront.net/startups/i/61114-35cd9d9689b70b4dc1d0b3c5f11c26e7-thumb_jpg.jpg?buster=1427395222",
+     "alt": "Hyde Park Angels - ",
+     "description": "Hyde Park Angels is the largest and most active angel group in the Midwest. With a membership of over 100 successful entrepreneurs, executives, a venture capitalists, the organization prides itself on providing critical strategic expertise to entrepreneurs and ...",
+     "link": "http://hydeparkangels.com",
+     "city": "Chicago"
+   }
+ }

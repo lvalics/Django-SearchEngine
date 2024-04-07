@@ -61,7 +61,7 @@ class QdrantConnection:
             documents=documents,
             metadata=payload,
             # ids=tqdm(range(len(payload))), 
-            parallel=0,
+            parallel=1,
         )
         logger.info("Data successfully inserted.")
 

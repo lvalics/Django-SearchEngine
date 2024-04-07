@@ -62,43 +62,29 @@ def create_qdrant_collection_name(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def embed_data_into_vector_database(request):
-    logger.info(f"Received request data: {request.data}")
-    if not request.data:
+    # logger.info(f"Received request data: {request.data}")
+    data = request.data.get("data")
+    payload_data = request.data.get("payload")
+    documents = [data["description"]]
+    payload = [payload_data]
+    if not documents or not payload:
         return Response(
-            {"error": "No data provided"}, status=status.HTTP_400_BAD_REQUEST
+            {"error": "No documents or payload provided"}, status=status.HTTP_400_BAD_REQUEST
         )
 
     qdrant = QdrantConnection()
     qdrant.set_model(EMBEDDINGS_MODEL)
 
-    documents = []
-    payload = []
+    try:
+        collection_name="1_SearchEngineGP"
+        logger.info(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
+        qdrant.insert_vector(collection_name, documents, payload)
 
-    # Ensure request.data is correctly interpreted as a list of dictionaries
-    # Ensure request.data is correctly interpreted as a list of dictionaries
-    data = request.data if isinstance(request.data, list) else [request.data]  # Wrap single dict in a list
-
-    for item in data:  # Process each item in the JSON array received in the request body
-        # Ensure each item is a dictionary
-        if not isinstance(item, dict):
-            continue  # Skip items that are not dictionaries
-        # Assuming each item in the request data is a dictionary like the ones in startups_demo.json
-        if "description" in item:
-            documents.append({"vector": item.pop("description")})  # Adjusted to match expected document structure
-        if "images" in item:
-            item["logo_url"] = item.pop("images")
-        if "link" in item:
-            item["homepage_url"] = item.pop("link")
-        payload.append(item)
-
-    logger.debug(f"Prepared documents for insertion: {documents}")
-    logger.debug(f"Prepared payload for insertion: {payload}")
-
-    # Here you should insert the documents and payload into the vector database
-    # This is a placeholder for the actual insertion logic
-    collection_name="1_SearchEngineGP"
-    logger.info(f"Inserting data into collection {collection_name} with documents: {documents} and payload: {payload}")
-    qdrant.insert_vector(collection_name, documents, payload)
+    except RuntimeError as e:
+        return Response(
+            {"error": f"Failed to insert data due to an internal error. {e}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
     return Response(
         {"message": "Data successfully inserted into vector database"},
