@@ -59,6 +59,7 @@ class QdrantConnection:
             This could be due to a collection with the same name already existing,
             server issues, or invalid parameters.
         """
+        vector_size = int(vector_size)
         try:
             self.client.recreate_collection(
                 collection_name=collection_name,

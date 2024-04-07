@@ -20,7 +20,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from api.utils.qdrant_connection import NeuralSearcher, QdrantConnection
 from api.serializers import MessageSerializer
-from app.settings import EMBEDDINGS_MODEL
 from app.permissions import IsOwner
 
 
@@ -36,6 +35,7 @@ class HelloWorldApiView(APIView):
     permission_classes = [IsAuthenticated, IsOwner]
 
     def get(self, request, format=None):
+        """ Hello World Response """
         return Response({"message": "Hello World"}, status=status.HTTP_200_OK)
 
 
@@ -67,8 +67,8 @@ def create_qdrant_collection_name(request):
         qdrant = QdrantConnection()
         qdrant.create_collection(collection_name,vector_size)
 
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as error:
+        return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(
         {"collection_name": collection_name}, status=status.HTTP_201_CREATED
@@ -88,6 +88,20 @@ def process_vector_data(collection_name, document, payload, id, id_key):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def embed_data_into_vector_database(request):
+    """
+    This function handles the HTTP requests to a specific view in the Django application.
+    It takes a request object and returns a response object.
+
+    Args:
+        request (HttpRequest): The request object that encapsulates all of the HTTP request data.
+        This includes data like the method (GET, POST, etc.), headers, user information,
+        and any data sent in the body of the request.
+
+    Returns:
+        HttpResponse: The response object that encapsulates all of the HTTP response data.
+        This includes data like the status code, headers, and any data sent in the body
+        of the response.
+    """
     try:
         qdrant = QdrantConnection()
         # Extracting payload and document from the request data
@@ -100,10 +114,10 @@ def embed_data_into_vector_database(request):
         message = f"Inserted into collection {collection_name} - {json.dumps(payload, indent=2)}"
         return Response({"message": message}, status=status.HTTP_201_CREATED)
 
-    except Exception as e:
-        logger.error(f"Exception during data insertion: {str(e)}")
+    except Exception as error:
+        logger.exception("Unhandled exception during data insertion: %s", str(error))
         return Response(
-            {"error": f"Failed to insert data due to an internal error. {str(e)}"},
+            {"error": f"Failed to insert data due to an internal error. {str(error)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
@@ -138,15 +152,29 @@ def update_data_into_vector_database(request):
             {"message": "Data points deleted successfully."},
             status=status.HTTP_200_OK,
         )
-    except Exception as e:
+    except Exception as error:
         return Response(
-            {"error": str(e)},
+            {"error": str(error)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
 @api_view(["GET"])
 def search_in_vector_database(request):
+    """
+    This function handles the HTTP requests to a specific view in the Django application.
+    It takes a request object and returns a response object.
+
+    Args:
+        request (HttpRequest): The request object that encapsulates all of the HTTP request data.
+        This includes data like the method (GET, POST, etc.), headers, user information,
+        and any data sent in the body of the request.
+
+    Returns:
+        HttpResponse: The response object that encapsulates all of the HTTP response data.
+        This includes data like the status code, headers, and any data sent in the body of
+        the response.
+    """
     q = request.query_params.get("q")
     collection_name = request.query_params.get("collection_name")
     if not q:
@@ -165,8 +193,9 @@ def search_in_vector_database(request):
         searcher = NeuralSearcher(collection_name=collection_name)
         search_results = searcher.search(text=q)
         return Response(search_results, status=status.HTTP_200_OK)
-    except Exception as e:
+    except Exception as error:
+        logger.exception("Unhandled exception during data insertion: %s", str(error))
         return Response(
-            {"error": f"Failed to perform search due to an internal error. {str(e)}"},
+            {"error": f"Failed to perform search due to an internal error. {str(error)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
