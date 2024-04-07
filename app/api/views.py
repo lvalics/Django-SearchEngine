@@ -10,9 +10,8 @@ from rest_framework import permissions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-from django.http import JsonResponse
-from api.utils.qdrant_connection import NeuralSearcher
-from api.utils.qdrant_connection import QdrantConnection
+from django.http import JsonResponse, HttpRequest, QueryDict
+from api.utils.qdrant_connection import NeuralSearcher, QdrantConnection
 from api.serializers import MessageSerializer
 from app.settings import EMBEDDINGS_MODEL
 from app.permissions import IsOwner
@@ -68,6 +67,16 @@ def create_qdrant_collection_name(request):
     )
 
 
+def process_vector_data(collection_name, document, payload, id, id_key):
+    """
+    Process vector data by updating and inserting vectors into the Qdrant database.
+    """
+    qdrant = QdrantConnection()
+    if id and id_key:
+        qdrant.update_vector(collection_name, id, id_key)
+    qdrant.insert_vector(collection_name, document, [payload])
+    
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def embed_data_into_vector_database(request):
@@ -78,36 +87,8 @@ def embed_data_into_vector_database(request):
         payload = request.data.get("payload")
         document = request.data.get("data")
         collection_name = request.data.get("collection_name")
-        print (ids)
-        # Attempt to transform non-UUID ids into UUIDs
-        try:
-            # Check if ids is already a valid UUID
-            generated_uuid = uuid.UUID(ids)
-            # Re-validate the generated UUID string to ensure it's in a proper format
-            ids = str(generated_uuid)
-        except ValueError:
-            # If not, generate a UUID based on the id string
-            ids = str(uuid.uuid5(uuid.NAMESPACE_DNS, ids))
-        except TypeError:
-            # If ids is None, generate a new UUID
-            ids = str(uuid.uuid4())
-        print (ids)
-
-        if not collection_name:
-            return Response(
-                {"error": "Query parameter 'collection_name' is required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if payload is None or document is None:
-            return Response(
-                {"error": "Payload and document must not be None."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # qdrant.insert_vector(collection_name, document, [payload], ids)
-        qdrant.insert_vector(collection_name, document, [payload])
-
+        # Process vector data
+        process_vector_data(collection_name, document, payload, None, None, )
         message = f"Inserted into collection {collection_name} and payload: {json.dumps(payload, indent=2)}"
         return Response({"message": message}, status=status.HTTP_201_CREATED)
 
@@ -121,13 +102,15 @@ def embed_data_into_vector_database(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def update_data(request):
+def update_data_into_vector_database(request):
     """
     Update data by deleting the existing point based on the provided id and category, and recreate it with new data.
     """
     try:
         id = request.data.get("id")
         id_key= request.data.get("id_key")
+        payload = request.data.get("payload")
+        document = request.data.get("data")
         # TODO: Implement category based deletion as second choice.
         #category = request.data.get("category")
         collection_name = request.data.get("collection_name")
@@ -138,10 +121,8 @@ def update_data(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Initialize Qdrant connection
-        qdrant = QdrantConnection()
-        qdrant.update_vector(collection_name, id, id_key)
-        embed_data_into_vector_database(request)
+        # Process vector data
+        process_vector_data(collection_name, document, payload, id, id_key)
         
         
         return Response(
@@ -153,8 +134,8 @@ def update_data(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-
+        
+        
 @api_view(["GET"])
 def search_in_vector_database(request):
     q = request.query_params.get("q")

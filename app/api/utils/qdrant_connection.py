@@ -80,9 +80,6 @@ class QdrantConnection:
         with_vectors=False,
         )
         
-        print (records)
-        print (point_ids) 
-
         if records:
             point_ids = [record.id for record in records]
             self.client.delete(
@@ -95,14 +92,6 @@ class QdrantConnection:
         else:
             print(f"No points found for the source '{id}'")
         
-        
-        # self.client.update(
-        #     collection_name=collection_name,
-        #     documents=documents,
-        #     metadata=payload,
-        #     ids=ids
-        # )
-        # print(f"Updated {len(documents)} vectors into collection {collection_name}")    
       
 class NeuralSearcher:
 
