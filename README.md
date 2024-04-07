@@ -23,7 +23,10 @@ https://blog.logrocket.com/django-rest-framework-create-api/
 
 ## Qdrant
 Start QGrant with 2 ports for faster work.
+
+```
 docker run -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage:z  qdrant/qdrant
+```
 
 ## Search must have also the collection name inside.
 
@@ -102,7 +105,7 @@ ID of the user will be add to the collection.
 ## Create Refresh Token
 You need to send username and password from Django.
  http://127.0.0.1:8000/auth/jwt/create/
- 
+
 ```
 POST /auth/jwt/create/ HTTP/1.1
 Host: 127.0.0.1:8000
