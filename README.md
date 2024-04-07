@@ -16,3 +16,7 @@ https://docs.djangoproject.com/en/5.0/
 https://blog.logrocket.com/django-rest-framework-create-api/
 
 ## Qdrant
+Start QGrant with 
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant

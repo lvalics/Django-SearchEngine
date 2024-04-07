@@ -5,3 +5,9 @@ django-cors-headers
 djangorestframework_simplejwt
 djoser
 python-dotenv
+qdrant-client
+sentence-transformers
+numpy
+pandas
+tqdm
+qdrant-client[fastembed]

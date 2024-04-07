@@ -143,8 +143,8 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
-    "ACCESS_TOKEN_LIFETIME": None,
-    "REFRESH_TOKEN_LIFETIME": None,
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
 }
@@ -154,3 +154,9 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API documentation",
     "VERSION": "1.0.0",
 }
+
+EMBEDDINGS_MODEL = os.environ.get(
+    "EMBEDDINGS_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+)
+
+TEXT_FIELD_NAME = "document"
