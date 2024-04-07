@@ -62,31 +62,30 @@ def create_qdrant_collection_name(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def embed_data_into_vector_database(request):
-    # logger.info(f"Received request data: {request.data}")
-    data = request.data.get("data")
-    payload_data = request.data.get("payload")
-    documents = [data["description"]]
-    payload = [payload_data]
-    if not documents or not payload:
+    try:
+        qdrant = QdrantConnection()
+        qdrant.set_model(EMBEDDINGS_MODEL)
+        
+        # Assuming the data is sent in the format as the 'startups_demo.json' file's lines.
+        obj = request.data
+        description = obj.pop('description')
+        obj["logo_url"] = obj.pop("images")
+        obj["homepage_url"] = obj.pop("link")
+
+        # Prepare the documents and payload for insertion
+        documents = [description]
+        payload = [obj]
+        
+        collection_name="1_SearchEngineGP"
+        qdrant.insert_vector(collection_name, documents, payload)
+        logger.info(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
         return Response(
-            {"error": "No documents or payload provided"}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Data successfully inserted into vector database"},
+            status=status.HTTP_201_CREATED
         )
 
-    qdrant = QdrantConnection()
-    qdrant.set_model(EMBEDDINGS_MODEL)
-
-    try:
-        collection_name="1_SearchEngineGP"
-        logger.info(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
-        qdrant.insert_vector(collection_name, documents, payload)
-
-    except RuntimeError as e:
+    except Exception as e:
         return Response(
-            {"error": f"Failed to insert data due to an internal error. {e}"},
+            {"error": f"Failed to insert data due to an internal error. {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-    return Response(
-        {"message": "Data successfully inserted into vector database"},
-        status=status.HTTP_201_CREATED
-    )
