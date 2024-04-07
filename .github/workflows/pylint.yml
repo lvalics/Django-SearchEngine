@@ -2,9 +2,9 @@ name: Pylint
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -32,11 +32,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pylint
+        pip install pylint mypy
 
     - name: Analysing the code with pylint
       run: |
         pylint $(git ls-files '*.py')
+        
+    - name: Analysing the code with mypy
+      run: |
+        mypy $(git ls-files '*.py')
         
     - uses: actions/upload-artifact@v3
       with:
