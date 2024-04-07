@@ -1,4 +1,7 @@
-from django.urls import path, include
+"""
+URL structure for the API/REST endpoints
+"""
+from django.urls import path
 from . import views
 
 urlpatterns = [
@@ -20,4 +23,3 @@ urlpatterns = [
     ),
     path("search/", views.search_in_vector_database, name="search"),
 ]
-    
