@@ -13,4 +13,6 @@ urlpatterns = [
         views.embed_data_into_vector_database,
         name="insert_data",
     ),
+    path("search/", views.search_in_vector_database, name="search"),
 ]
+    

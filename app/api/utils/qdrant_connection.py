@@ -1,13 +1,13 @@
 import os
 import logging
+import time
+from typing import List
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import VectorParams, Distance
+from qdrant_client.http.models.models import Filter
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
 
-vector_size = int(os.getenv("VECTOR_SIZE", "1536"))
-
 logger = logging.getLogger(__name__)
-
 
 class QdrantConnection:
     def __init__(self, url="localhost", port=6333):
@@ -18,14 +18,10 @@ class QdrantConnection:
             # api_key=os.environ.get("QDRANT_API_KEY"),
         )
         self.model = None
+        self.client.set_model(EMBEDDINGS_MODEL)
 
-    def set_model(self, model_name):
-        # This is a placeholder for setting the model.
-        # Depending on the use case, this method might need to actually load a model or perform other setup tasks.
-        self.model = model_name
-        logger.info(f"Model {model_name} set successfully.")
-
-    def create_collection(self, collection_name, vector_size):
+    def create_collection(self, collection_name: str, vector_size):
+        
         try:
             self.client.recreate_collection(
                 collection_name=collection_name,
@@ -33,9 +29,11 @@ class QdrantConnection:
                 # Quantization is optional, but it can significantly reduce the memory usage
                 quantization_config=models.ScalarQuantization(
                     scalar=models.ScalarQuantizationConfig(
-                        type=models.ScalarType.INT8, quantile=0.99, always_ram=True
+                        type=models.ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=True
                     )
-                ),
+                )
             )
             self.client.create_payload_index(
                 collection_name=collection_name,
@@ -55,7 +53,7 @@ class QdrantConnection:
 
 
     def insert_vector(self, collection_name, documents, payload):
-        print(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
+        # print(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
         self.client.add(
             collection_name=collection_name,
             documents=documents,
@@ -63,5 +61,29 @@ class QdrantConnection:
             parallel=1,
         )
         logger.info("Data successfully inserted.")
+      
+class NeuralSearcher:
 
-    
+    def __init__(self, collection_name: str, url="localhost", port=6333):
+        self.collection_name = collection_name
+        self.client = QdrantClient(
+            url=url,
+            port=port,
+            prefer_grpc=True, 
+        )
+        self.client.set_model(EMBEDDINGS_MODEL) 
+
+    def search(self, text: str, filter_: dict = None) -> dict:
+        start_time = time.time()
+        hits = self.client.query(
+            collection_name=self.collection_name,
+            query_text=text,
+            query_filter=Filter(**filter_) if filter_ else None,
+            limit=5
+        )
+        search_time = time.time() - start_time
+        return {
+            "results": [hit.metadata for hit in hits],
+            "search_time": search_time,
+            "hits_found": len(hits)
+        }
