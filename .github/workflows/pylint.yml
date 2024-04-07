@@ -36,13 +36,8 @@ jobs:
 
     - name: Analysing the code with pylint
       run: |
-        if [ -f ".pylintrc" ]; then
-          pylint --rcfile=.pylintrc $(git ls-files '*.py') > pylint-report.txt
-        else
-          pylint $(git ls-files '*.py') > pylint-report.txt
-        fi
-      continue-on-error: false
-
+        pylint $(git ls-files '*.py')
+        
     - uses: actions/upload-artifact@v3
       with:
         name: pylint-report
