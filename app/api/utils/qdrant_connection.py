@@ -53,38 +53,16 @@ class QdrantConnection:
             logger.error(f"Failed to create collection {collection_name}: {e}")
             raise e
 
-    # def collection_exists(self, collection_name):
-    #     try:
-    #         return (
-    #             self.client.http.collections_api.get_collection(
-    #                 collection_name=collection_name
-    #             )
-    #             is not None
-    #         )
-    #     except Exception:
-    #         return False
 
     def insert_vector(self, collection_name, documents, payload):
+        logger.info(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
         self.client.add(
             collection_name=collection_name,
             documents=documents,
             metadata=payload,
-            # ids=tqdm(range(len(payload))),
+            # ids=tqdm(range(len(payload))), 
             parallel=0,
         )
+        logger.info("Data successfully inserted.")
 
-    # def insert_vector_fastembed(self, collection_name):
-    #     self.client.recreate_collection(
-    #         collection_name=collection_name,
-    #         vectors_config=self.client.get_fastembed_vector_params(),
-    #     )
-
-    # def search_vector(self, collection_name, vectors, top=10):
-    #     search_params = models.SearchRequest(
-    #         collection_name=collection_name,
-    #         query_vector=vectors,
-    #         top=top,
-    #         params=models.SearchParams(k=top),
-    #     )
-    #     result = self.client.http.points_api.search_points(search_params)
-    #     return result.result
+    

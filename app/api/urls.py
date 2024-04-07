@@ -8,4 +8,9 @@ urlpatterns = [
         views.create_qdrant_collection_name,
         name="create_namespace",
     ),
+    path(
+        "insert-data/",
+        views.embed_data_into_vector_database,
+        name="insert_data",
+    ),
 ]

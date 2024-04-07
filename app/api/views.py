@@ -1,6 +1,7 @@
 # app/api/views.py
 import json
 import os.path
+import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,6 +13,8 @@ from api.utils.qdrant_connection import QdrantConnection
 from api.serializers import MessageSerializer
 from app.settings import EMBEDDINGS_MODEL
 from app.permissions import IsOwner
+
+logger = logging.getLogger(__name__)
 
 class HelloWorldApiView(APIView):
     """
@@ -59,34 +62,45 @@ def create_qdrant_collection_name(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def embed_data_into_vector_database(request):
-    """
-    Embed data into the vector database
-    {
-        "namespace": "SearchEngineGP",
-        "vector_size": "1536"
-    }
-    """
+    logger.info(f"Received request data: {request.data}")
+    if not request.data:
+        return Response(
+            {"error": "No data provided"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
     qdrant = QdrantConnection()
     qdrant.set_model(EMBEDDINGS_MODEL)
 
-    payload_path = os.path.join("../../startups_demo.json")
-    payload = []
     documents = []
+    payload = []
 
-    #     {
-    #    "name":"Hyde Park Angels",
-    #    "images":"https:\/\/d1qb2nb5cznatu.cloudfront.net\/startups\/i\/61114-35cd9d9689b70b4dc1d0b3c5f11c26e7-thumb_jpg.jpg?buster=1427395222",
-    #    "alt":"Hyde Park Angels - ",
-    #    "description":"Hyde Park Angels is the largest and most active angel group in the Midwest. With a membership of over 100 successful entrepreneurs, executives, and venture capitalists, the organization prides itself on providing critical strategic expertise to entrepreneurs and ...",
-    #    "link":"http:\/\/hydeparkangels.com",
-    #    "city":"Chicago"
-    #     }
+    # Ensure request.data is correctly interpreted as a list of dictionaries
+    # Ensure request.data is correctly interpreted as a list of dictionaries
+    data = request.data if isinstance(request.data, list) else [request.data]  # Wrap single dict in a list
 
-    with open(payload_path) as fd:
-        for line in fd:
-            obj = json.loads(line)
-            # Rename fields to unified schema
-            documents.append(obj.pop("description"))
-            obj["logo_url"] = obj.pop("images")
-            obj["homepage_url"] = obj.pop("link")
-            payload.append(obj)
+    for item in data:  # Process each item in the JSON array received in the request body
+        # Ensure each item is a dictionary
+        if not isinstance(item, dict):
+            continue  # Skip items that are not dictionaries
+        # Assuming each item in the request data is a dictionary like the ones in startups_demo.json
+        if "description" in item:
+            documents.append({"vector": item.pop("description")})  # Adjusted to match expected document structure
+        if "images" in item:
+            item["logo_url"] = item.pop("images")
+        if "link" in item:
+            item["homepage_url"] = item.pop("link")
+        payload.append(item)
+
+    logger.debug(f"Prepared documents for insertion: {documents}")
+    logger.debug(f"Prepared payload for insertion: {payload}")
+
+    # Here you should insert the documents and payload into the vector database
+    # This is a placeholder for the actual insertion logic
+    collection_name="1_SearchEngineGP"
+    logger.info(f"Inserting data into collection {collection_name} with documents: {documents} and payload: {payload}")
+    qdrant.insert_vector(collection_name, documents, payload)
+
+    return Response(
+        {"message": "Data successfully inserted into vector database"},
+        status=status.HTTP_201_CREATED
+    )
