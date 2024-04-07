@@ -65,26 +65,36 @@ def embed_data_into_vector_database(request):
     try:
         qdrant = QdrantConnection()
         qdrant.set_model(EMBEDDINGS_MODEL)
-        
-        # Assuming the data is sent in the format as the 'startups_demo.json' file's lines.
-        obj = request.data
-        description = obj.pop('description')
-        obj["logo_url"] = obj.pop("images")
-        obj["homepage_url"] = obj.pop("link")
 
-        # Prepare the documents and payload for insertion
-        documents = [description]
-        payload = [obj]
+        # Log statements for debugging
+        print(f"Starting data insertion...")
+        # Extracting payload and document from the request data
+        payload = request.data.get("payload")
+        document = request.data.get("data")
+        collection_name = request.data.get("collection_name")
+
+        # Ensure payload and document are correctly formatted
+
+        if payload is None or document is None:
+            return Response(
+                {"error": "Payload and document must not be None."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # print(f"Final payload before insertion: {payload}")
+        # print(f"Final document before insertion: {document}")
+
+        qdrant.insert_vector(collection_name, document, [payload])
+        logger.info("Inserting into collection %s with documents: %s and payload: %s", collection_name, json.dumps(document, indent=2), json.dumps(payload, indent=2))
         
-        collection_name="1_SearchEngineGP"
-        qdrant.insert_vector(collection_name, documents, payload)
-        logger.info(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
+
         return Response(
             {"message": "Data successfully inserted into vector database"},
             status=status.HTTP_201_CREATED
         )
 
     except Exception as e:
+        logger.error(f"Exception during data insertion: {str(e)}")
         return Response(
             {"error": f"Failed to insert data due to an internal error. {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

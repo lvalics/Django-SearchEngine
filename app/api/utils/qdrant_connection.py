@@ -55,12 +55,11 @@ class QdrantConnection:
 
 
     def insert_vector(self, collection_name, documents, payload):
-        logger.info(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
+        print(f"Inserting into collection {collection_name} with documents: {documents} and payload: {payload}")
         self.client.add(
             collection_name=collection_name,
             documents=documents,
             metadata=payload,
-            # ids=tqdm(range(len(payload))), 
             parallel=1,
         )
         logger.info("Data successfully inserted.")
