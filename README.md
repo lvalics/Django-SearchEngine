@@ -1,5 +1,5 @@
 # Django-SearchEngine
-
+https://github.com/lvalics/Django-SearchEngine
 uv pip install -r requirements.txt
 
 # Workflow
