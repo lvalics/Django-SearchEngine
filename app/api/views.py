@@ -75,14 +75,17 @@ def create_qdrant_collection_name(request):
     )
 
 
-def process_vector_data(collection_name, document, payload, id, id_key):
+def process_vector_data(collection_name, document, payload, id_value, id_key, id_value2, id_key2):
+    data_deleted = False
+    data_inserted = False
     """
-    Process vector data by updating and inserting vectors into the Qdrant database.
+    Process vector data by updating and inserting vectors into the Qdrant database...
     """
     qdrant = QdrantConnection()
-    if id and id_key:
-        qdrant.update_vector(collection_name, id, id_key)
-    qdrant.insert_vector(collection_name, document, [payload])
+    if id_value and id_key:
+        data_deleted = qdrant.update_vector(collection_name, id_value, id_key, id_value2, id_key2)
+    data_inserted = qdrant.insert_vector(collection_name, document, [payload])
+    return data_deleted, data_inserted
 
 
 @api_view(["POST"])
@@ -103,16 +106,16 @@ def embed_data_into_vector_database(request):
         of the response.
     """
     try:
-        qdrant = QdrantConnection()
+        # qdrant = QdrantConnection()
         # Extracting payload and document from the request data
-        ids = request.data.get("id")
+        # ids = request.data.get("id")
         payload = request.data.get("payload")
         document = request.data.get("data")
         collection_name = request.data.get("collection_name")
         # Process vector data
-        process_vector_data(collection_name, document, payload, None, None, )
-        message = f"Inserted into collection {collection_name} - {json.dumps(payload, indent=2)}"
-        return Response({"message": message}, status=status.HTTP_201_CREATED)
+        process_vector_data(collection_name, document, payload, None, None, None, None,)
+        response_data = {"SUCCESS": payload}
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     except Exception as error:
         logger.exception("Unhandled exception during data insertion: %s", str(error))
@@ -125,33 +128,35 @@ def embed_data_into_vector_database(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def update_data_into_vector_database(request):
-    """
-    Update data by deleting the existing point based on the
-    provided id and category, and recreate it with new data.
-    """
+    data_deleted = False
+    data_inserted = False
     try:
-        id = request.data.get("id")
+        id_value = request.data.get("id_value")
         id_key= request.data.get("id_key")
+        id_value2 = request.data.get("id_value2", None)
+        id_key2= request.data.get("id_key2", None)
         payload = request.data.get("payload")
         document = request.data.get("data")
-        # TODO: Implement category based deletion as second choice.
-        #category = request.data.get("category")
         collection_name = request.data.get("collection_name")
 
-        if not id or not collection_name:
+        if not id_value or not collection_name:
             return Response(
-                {"error": "id, and collection_name are required fields."},
+                {"error": "id_value, id_key, and collection_name are required fields."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Process vector data
-        process_vector_data(collection_name, document, payload, id, id_key)
+        data_deleted, data_inserted = process_vector_data(collection_name, document, payload, id_value, id_key, id_value2, id_key2)
 
-
-        return Response(
-            {"message": "Data points deleted successfully."},
-            status=status.HTTP_200_OK,
-        )
+ 
+        response_data = {}
+        if data_deleted:
+            response_data["DELETED_IDS"] = data_deleted
+        if data_inserted:
+            response_data["SUCCESS"] = payload
+        if response_data:
+            return Response(response_data, status=status.HTTP_200_OK if data_deleted else status.HTTP_201_CREATED)
+        else:
+            return Response({"error": "No data was processed."}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as error:
         return Response(
             {"error": str(error)},

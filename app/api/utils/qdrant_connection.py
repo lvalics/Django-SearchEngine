@@ -118,10 +118,11 @@ class QdrantConnection:
             parallel=1,
             # ids=ids
         )
-        logger.info("Inserted %d vectors into collection %s", len(documents), collection_name)
+        # logger.info("Inserted %d vectors into collection %s", len(documents), collection_name)
+        return True
 
 
-    def update_vector(self, collection_name, id, id_key):
+    def update_vector(self, collection_name, id_value, id_key, id_value2, id_key2):
         """
         This function deletes a specific record from a collection in the Qdrant server.
 
@@ -130,6 +131,8 @@ class QdrantConnection:
             needs to be deleted.
             id (int): The unique identifier of the record that needs to be deleted.
             id_key (str): The key used for the unique identifier in the collection.
+            id_value2 (str, optional): The second unique identifier of the record that needs to be matched.
+            id_key2 (str, optional): The key used for the second unique identifier in the collection.
 
         Raises:
             DeletionError: If there is an issue deleting the record from the collection.
@@ -139,18 +142,25 @@ class QdrantConnection:
         Returns:
             bool: True if the deletion was successful, False otherwise.
         """
+        
+        filter_conditions = [
+            models.FieldCondition(key=id_key, match=models.MatchValue(value=id_value)),
+         ]
+        if id_key2 and id_value2:
+            filter_conditions.append(models.FieldCondition(key=id_key2, match=models.MatchValue(value=id_value2)))
+
+        print (filter_conditions)
         records, point_ids = self.client.scroll(
         collection_name=collection_name,
         scroll_filter=models.Filter(
-            must=[
-                models.FieldCondition(key=id_key, match=models.MatchValue(value=id)),
-            ]
+            must=filter_conditions
         ),
         limit=int(100),
         offset=int(0),
         with_payload=True,
         with_vectors=False,
         )
+        
 
         if records:
             point_ids = [record.id for record in records]
@@ -160,8 +170,8 @@ class QdrantConnection:
                     points=point_ids,
                 ),
             )
-            logger.info("Deleted points with IDs %s from collection '%s'.",
-                        point_ids, collection_name)
+            deleted_ids = [str(point_id) for point_id in point_ids]
+            return deleted_ids
         else:
             logger.info("No points found for the source '%s'", id)
 
