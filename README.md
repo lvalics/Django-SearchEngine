@@ -68,14 +68,15 @@ http://127.0.0.1:8000/api/update-data/
 
 ```
 {
-  "id": "1234",
+  "id_value": "1234",
   "id_key": "companyID",
+  "id_value2": "news",
+  "id_key2": "category",
   "collection_name": "1_SearchEngineGP",
    "payload": {
-	 "name": "Hyde Park Angels",
-     "description": "Hyde Park Angels is the largest and most active angel group in the Midwest. With a membership of over 100 successful entrepreneurs, executives, and venture capitalists, the organization prides itself on providing critical strategic expertise to entrepreneurs and ...",
-	 "images": "https://d1qb2nb5cznatu.cloudfront.net/startups/i/61114-35cd9d9689b70b4dc1d0b3c5f11c26e7-thumb_jpg.jpg?buster=1427395222",
-     "companyID": "1234"
+	 "name": "Hyde Park Angels1333",
+     "companyID": "1234",
+     "category": "music"
    },
    "data": {
      "name": "Hyde Park Angels",
