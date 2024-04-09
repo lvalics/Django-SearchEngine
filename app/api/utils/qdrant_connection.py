@@ -40,7 +40,7 @@ class QdrantConnection:
             prefer_grpc=True, # Use gRPC for better performance
             # api_key=os.environ.get("QDRANT_API_KEY"),
         )
-        self.model = None
+        # self.model = None
         self.client.set_model(EMBEDDINGS_MODEL)
 
 
