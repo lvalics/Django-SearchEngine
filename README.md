@@ -1,14 +1,32 @@
 # Django-SearchEngine
-https://github.com/lvalics/Django-SearchEngine
 
-uv pip install -r requirements.txt
+Clone the project from GitHub by executing the following commands:
 
+```
+git clone https://github.com/lvalics/Django-SearchEngine
+cd Django-SearchEngine
+python3 -m venv venv
+source venv/bin/activate 
+pip install -r requirements.txt
+```
 
-# Workflow
+# Set up the .env File
 
-An API to get request from sources, where it will be creating in QDrant Vector Database in a namespace a record with a metafield. Important to define for each API the metafield. Should be dynamic, where in metafields should be entered inportant information what to send back for identifying (ex: filename, categories, etc).
+Create a .env file in the root directory of the project and populate it with the following content:
 
-# Extra resources
+```
+SECRET_KEY='django-add_a_random_string_here'
+ALLOWED_HOSTS=['127.0.0.1,0.0.0.0']  #your IP to allow to do requests
+EMBEDDINGS_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+```
+
+# Workflow Description
+
+This API retrieves requests from various sources and creates records in the QDrant Vector Database within a designated collection, each with a payload. It is essential to define the payload for each API. Payloads should contain key information (e.g., filename, categories) that will be used for identification and response purposes.
+
+# Additional resources
+
+For further information and assistance with Django and the Django REST Framework, refer to the following resources:
 
 ## Django Documentation
 https://www.django-rest-framework.org/tutorial/quickstart/
@@ -22,17 +40,54 @@ https://docs.djangoproject.com/en/5.0/
 https://blog.logrocket.com/django-rest-framework-create-api/
 
 ## Qdrant
-Start QDrant with 2 ports for faster work.
+To start QDrant with two ports for improved performance, you can use the following command:
 
 ```
 docker run -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage:z  qdrant/qdrant
 ```
 
-## Search must have also the collection name inside.
+## How to search via API
 
+To ensure the search includes the collection name and the search value, you should structure your API endpoint like this:
+
+```
 http://127.0.0.1:8000/api/search?q=Chicago&collection_name=1_SearchEngineGP
+```
+
+This URL will make a request to the search API at the given local address (127.0.0.1) on port 8000. The query parameters q and collection_name are used to specify the search term ("Chicago") and the collection name ("1_SearchEngineGP"), respectively.
+
+## Create a superuser in Django
+
+To ensure that each user has a unique collection name and to create a superuser that will be used to generate access tokens, you will need to run the Django createsuperuser command:
+
+```
+python3 manage.py createsuperuser
+```
+
+When you execute this command, it will prompt you to enter a username, email address, and password for the superuser. This superuser can then be used to access the Django admin panel where you can manage tokens and ensure that the collection_name is unique for each user. It's important that the collection_name is generated or assigned in a way that guarantees uniqueness, perhaps by incorporating the user's ID or a unique identifier that persists across sessions.
+
+## Create collection
+
+To include the user ID in the collection name when creating a namespace through your API, you need to modify the JSON payload to dynamically insert the user's ID into the collection_name. Assuming the user ID is provided or available in your application context, here's how you could construct the request.
+NOTE: If collection exist, it will delete the old collection and create a new one.
+
+TODO: Add an extra key to check if exist and add a value to DELETE.
+
+http://127.0.0.1:8000/api/create-namespace/
+
+ ```
+ {
+   "collection_name": "SearchEngineGP"
+ }
+```
 
 ## Insert data
+
+When creating or updating records in a collection, it's crucial to include both the collection_name and data in the payload, with a focus on using unique identifiers for efficient retrieval and safe modifications. Here's how you can structure your payload to meet these requirements:
+
+It is essential to carefully define and use these identifiers because they will not only allow for precise updates and deletions but also determine how search results are returned. Ensure that each object in the payload array has all the necessary identifiers and that they are assigned accurately to reflect the nature of the data.
+
+For example, if ID 1234 represents the data for a company, and this company has various types of information that can be easily categorized, then you should include these categories in the payload. For instance, you could use categories such as 'music', 'news', 'movies', etc.
 
 http://127.0.0.1:8000/api/insert-data/
 
@@ -64,6 +119,12 @@ http://127.0.0.1:8000/api/insert-data/
 
 ## Update data
 
+You must include 'id_value', 'id_key', and 'collection_name' in your submission. The 'id_value' will be utilized to filter and identify the data that needs to be deleted before new data is inserted. It is crucial to accurately define your data in the payload to facilitate easier identification later.
+
+If your data requires matching across two values for a search, utilize 'id_value' and 'id_value2' for this purpose. Currently, our system is only capable of handling matches using two values.
+
+TODO: Develop a dynamic system for matching values.
+
 http://127.0.0.1:8000/api/update-data/
 
 ```
@@ -92,20 +153,11 @@ http://127.0.0.1:8000/api/update-data/
  }
 ```
 
-## Create namespace
-
-ID of the user will be add to the collection.
- http://127.0.0.1:8000/api/create-namespace/
-
- ```
- {
-   "collection_name": "SearchEngineGP"
- }
-```
-
 ## Create Refresh Token
-You need to send username and password from Django.
- http://127.0.0.1:8000/auth/jwt/create/
+
+To send a username and password to the Django backend for authentication, you would typically make a POST request to the /auth/jwt/create/ endpoint. Here's how you can structure this request: http://127.0.0.1:8000/auth/jwt/create/
+
+TODO: Implement a mechanism for a non-expiring key. Currently, JWTs typically expire after a set duration for security reasons.
 
 ```
 POST /auth/jwt/create/ HTTP/1.1
@@ -118,4 +170,23 @@ Content-Type: application/json
 }
 ```
 
+## TO DO 
 
+- Chunk the data to avoid large context.
+
+def get_chunks(text):
+    text_splitter = CharacterTextSplitter(
+        separator="\n",
+        chunk_size=1000,
+        chunk_overlap=100,
+        length_function=len
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
+
+with open("story.txt") as f:
+    raw_text = f.read()
+
+texts = get_chunks(raw_text)
+
+vectorstore.add_texts(texts)
