@@ -249,7 +249,10 @@ class NeuralSearcher:
         )
         logger.info(f"Search took {time.time() - start_time} seconds")
         logger.info(f"Query response: {query_response}")
-        hits = [{k: v for k, v in hit.metadata.items() if k != "document"} for hit in query_response]
+        hits = [
+            {k: v for k, v in hit.metadata.items() if k != "document"}
+            for hit in query_response
+        ]
         if not hits:
             logger.info("No hits found for query: %s with filter: %s", text, filter_)
-        return hits
+        return hits, start_time

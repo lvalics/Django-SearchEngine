@@ -10,7 +10,7 @@ Returns:
     HttpResponse: A HttpResponse object containing the rendered template.
 """
 
-import os.path
+import os.path, time
 import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -196,8 +196,8 @@ def search_in_vector_database(request):
         This includes data like the status code, headers, and any data sent in the body of
         the response.
     """
-    q = request.query_params.get("q")
-    collection_name = request.query_params.get("collection_name")
+    q = request.GET.get("q")
+    collection_name = request.GET.get("collection_name")
     if not q:
         return Response(
             {"error": "Query parameter 'q' is required."},
@@ -212,10 +212,16 @@ def search_in_vector_database(request):
 
     try:
         searcher = NeuralSearcher(collection_name=collection_name)
-        search_results = searcher.search(text=q)
-        return Response(search_results, status=status.HTTP_200_OK)
+        search_results, start_time = searcher.search(text=q)
+        search_time_seconds = time.time() - start_time
+        response_data = {
+            "results": search_results,
+            "search_time_seconds": round(search_time_seconds, 2),
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
     except Exception as error:
-        logger.exception("Unhandled exception during data insertion: %s", str(error))
+        ...
+        logger.exception("Unhandled exception during search: %s", str(error))
         return Response(
             {
                 "error": f"Failed to perform search due to an internal error. {str(error)}"
