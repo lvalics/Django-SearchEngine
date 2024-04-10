@@ -10,7 +10,6 @@ Returns:
     HttpResponse: A HttpResponse object containing the rendered template.
 """
 
-import json
 import os.path
 import logging
 from rest_framework.views import APIView
@@ -36,9 +35,9 @@ class HelloWorldApiView(APIView):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated, IsOwner]
 
-    def get(self, request, format=None):
-        """Hello World Response"""
-        return Response({"message": "Hello World"}, status=status.HTTP_200_OK)
+    def get(self):
+        """DJ-SE"""
+        return Response({"message": "DJ-SE"}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
@@ -80,11 +79,11 @@ def create_qdrant_collection_name(request):
 def process_vector_data(
     collection_name, document, payload, id_value, id_key, id_value2, id_key2
 ):
-    data_deleted = False
-    data_inserted = False
     """
     Process vector data by updating and inserting vectors into the Qdrant database...
     """
+    data_deleted = False
+    data_inserted = False
     qdrant = QdrantConnection()
     if id_value and id_key:
         data_deleted = qdrant.update_vector(
@@ -173,10 +172,7 @@ def update_data_into_vector_database(request):
                 response_data,
                 status=status.HTTP_200_OK if data_deleted else status.HTTP_201_CREATED,
             )
-        else:
-            return Response(
-                {"error": "No data was processed."}, status=status.HTTP_400_BAD_REQUEST
-            )
+
     except Exception as error:
         return Response(
             {"error": str(error)},

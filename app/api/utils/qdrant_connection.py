@@ -9,6 +9,7 @@ Returns:
     Connection: A connection object to the Qdrant server.
 """
 
+import os
 import logging
 import time
 from typing import List
@@ -20,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class QdrantConnection:
+    def __init__(self):
+        self.initialize_client(url=None, port=None)
     """
     This function establishes a connection to the Qdrant server.
     It uses the provided server address and port number to establish a connection
@@ -36,15 +39,17 @@ class QdrantConnection:
         collections, inserting points, and running queries.
     """
 
-    def __init__(self, url="localhost", port=6333):
+    def initialize_client(self, url=None, port=None):
         self.client = QdrantClient(
-            url=url,
-            port=port,
+            url=os.environ.get("QDRANT_URL"),
+            port=os.environ.get("QDRANT_PORT"),
             prefer_grpc=True,  # Use gRPC for better performance
             # api_key=os.environ.get("QDRANT_API_KEY"),
         )
-        # self.model = None
-        self.client.set_model(EMBEDDINGS_MODEL)
+
+        if not hasattr(self.client, "model_set") or not self.client.model_set:
+            self.client.set_model(EMBEDDINGS_MODEL)
+            self.client.model_set = True
 
     def create_collection(self, collection_name: str, vector_size):
         """
@@ -91,10 +96,12 @@ class QdrantConnection:
                 formatted_error = f"Collection {collection_name} already exists."
             else:
                 # Extract only the detail message from the error
-                detail_start = error_message.find("details = \"") + len("details = \"")
-                detail_end = error_message.find("\"", detail_start)
+                detail_start = error_message.find('details = "') + len('details = "')
+                detail_end = error_message.find('"', detail_start)
                 formatted_error = error_message[detail_start:detail_end]
-            logger.error("Failed to create collection %s: %s", collection_name, formatted_error)
+            logger.error(
+                "Failed to create collection %s: %s", collection_name, formatted_error
+            )
             raise Exception(formatted_error)
 
     # def insert_vector(self, collection_name, documents, payload, ids):
@@ -139,8 +146,10 @@ class QdrantConnection:
             needs to be deleted.
             id (int): The unique identifier of the record that needs to be deleted.
             id_key (str): The key used for the unique identifier in the collection.
-            id_value2 (str, optional): The second unique identifier of the record that needs to be matched.
-            id_key2 (str, optional): The key used for the second unique identifier in the collection.
+            id_value2 (str, optional): The second unique identifier of the
+            record that needs to be matched.
+            id_key2 (str, optional): The key used for the second unique identifier
+            in the collection.
 
         Raises:
             DeletionError: If there is an issue deleting the record from the collection.
@@ -161,7 +170,6 @@ class QdrantConnection:
                 )
             )
 
-        print(filter_conditions)
         records, point_ids = self.client.scroll(
             collection_name=collection_name,
             scroll_filter=models.Filter(must=filter_conditions),
@@ -203,14 +211,11 @@ class NeuralSearcher:
         collections, inserting points, and running queries.
     """
 
-    def __init__(self, collection_name: str, url="localhost", port=6333):
+    def __init__(self, collection_name: str):
         self.collection_name = collection_name
-        self.client = QdrantClient(
-            url=url,
-            port=port,
-            prefer_grpc=True,
-        )
-        self.client.set_model(EMBEDDINGS_MODEL)
+        qdrant_connection = QdrantConnection()
+        qdrant_connection.initialize_client(url=None, port=None)
+        self.client = qdrant_connection.client
         self.search_limit = 5  # Default search limit
 
     def search(self, text: str, filter_: dict = None) -> List[dict]:
