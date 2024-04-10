@@ -9,6 +9,7 @@ Raises:
 Returns:
     HttpResponse: A HttpResponse object containing the rendered template.
 """
+
 import json
 import os.path
 import logging
@@ -25,6 +26,7 @@ from app.permissions import IsOwner
 
 logger = logging.getLogger(__name__)
 
+
 class HelloWorldApiView(APIView):
     """
     View to return "Hello World" response.
@@ -35,7 +37,7 @@ class HelloWorldApiView(APIView):
     permission_classes = [IsAuthenticated, IsOwner]
 
     def get(self, request, format=None):
-        """ Hello World Response """
+        """Hello World Response"""
         return Response({"message": "Hello World"}, status=status.HTTP_200_OK)
 
 
@@ -46,7 +48,7 @@ def create_qdrant_collection_name(request):
     Create a new collection in Qdrant. Will create IDUser +
     namespace to be sure is unique/user specific.
     {
-        "namespace": "SearchEngineGP"
+        "namespace":  "SearchEngineGP"
     }
     """
     user = request.user
@@ -59,13 +61,13 @@ def create_qdrant_collection_name(request):
     if not collection_name:
         return Response(
             {"error": "Query parameter 'collection_name' is required."},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     try:
         vector_size = int(os.getenv("VECTOR_SIZE", "1536"))
         qdrant = QdrantConnection()
-        qdrant.create_collection(collection_name,vector_size)
+        qdrant.create_collection(collection_name, vector_size)
 
     except Exception as error:
         return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
@@ -75,7 +77,9 @@ def create_qdrant_collection_name(request):
     )
 
 
-def process_vector_data(collection_name, document, payload, id_value, id_key, id_value2, id_key2):
+def process_vector_data(
+    collection_name, document, payload, id_value, id_key, id_value2, id_key2
+):
     data_deleted = False
     data_inserted = False
     """
@@ -83,7 +87,9 @@ def process_vector_data(collection_name, document, payload, id_value, id_key, id
     """
     qdrant = QdrantConnection()
     if id_value and id_key:
-        data_deleted = qdrant.update_vector(collection_name, id_value, id_key, id_value2, id_key2)
+        data_deleted = qdrant.update_vector(
+            collection_name, id_value, id_key, id_value2, id_key2
+        )
     data_inserted = qdrant.insert_vector(collection_name, document, [payload])
     return data_deleted, data_inserted
 
@@ -113,7 +119,15 @@ def embed_data_into_vector_database(request):
         document = request.data.get("data")
         collection_name = request.data.get("collection_name")
         # Process vector data
-        process_vector_data(collection_name, document, payload, None, None, None, None,)
+        process_vector_data(
+            collection_name,
+            document,
+            payload,
+            None,
+            None,
+            None,
+            None,
+        )
         response_data = {"SUCCESS": payload}
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -121,7 +135,7 @@ def embed_data_into_vector_database(request):
         logger.exception("Unhandled exception during data insertion: %s", str(error))
         return Response(
             {"error": f"Failed to insert data due to an internal error. {str(error)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
@@ -132,9 +146,9 @@ def update_data_into_vector_database(request):
     data_inserted = False
     try:
         id_value = request.data.get("id_value")
-        id_key= request.data.get("id_key")
+        id_key = request.data.get("id_key")
         id_value2 = request.data.get("id_value2", None)
-        id_key2= request.data.get("id_key2", None)
+        id_key2 = request.data.get("id_key2", None)
         payload = request.data.get("payload")
         document = request.data.get("data")
         collection_name = request.data.get("collection_name")
@@ -145,18 +159,24 @@ def update_data_into_vector_database(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        data_deleted, data_inserted = process_vector_data(collection_name, document, payload, id_value, id_key, id_value2, id_key2)
+        data_deleted, data_inserted = process_vector_data(
+            collection_name, document, payload, id_value, id_key, id_value2, id_key2
+        )
 
- 
         response_data = {}
         if data_deleted:
             response_data["DELETED_IDS"] = data_deleted
         if data_inserted:
             response_data["SUCCESS"] = payload
         if response_data:
-            return Response(response_data, status=status.HTTP_200_OK if data_deleted else status.HTTP_201_CREATED)
+            return Response(
+                response_data,
+                status=status.HTTP_200_OK if data_deleted else status.HTTP_201_CREATED,
+            )
         else:
-            return Response({"error": "No data was processed."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "No data was processed."}, status=status.HTTP_400_BAD_REQUEST
+            )
     except Exception as error:
         return Response(
             {"error": str(error)},
@@ -185,13 +205,13 @@ def search_in_vector_database(request):
     if not q:
         return Response(
             {"error": "Query parameter 'q' is required."},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     if not collection_name:
         return Response(
             {"error": "Query parameter 'collection_name' is required."},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     try:
@@ -201,6 +221,8 @@ def search_in_vector_database(request):
     except Exception as error:
         logger.exception("Unhandled exception during data insertion: %s", str(error))
         return Response(
-            {"error": f"Failed to perform search due to an internal error. {str(error)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {
+                "error": f"Failed to perform search due to an internal error. {str(error)}"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

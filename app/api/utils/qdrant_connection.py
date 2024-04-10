@@ -8,6 +8,7 @@ Raises:
 Returns:
     Connection: A connection object to the Qdrant server.
 """
+
 import logging
 import time
 from typing import List
@@ -16,6 +17,7 @@ from qdrant_client.http.models.models import Filter
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
 
 logger = logging.getLogger(__name__)
+
 
 class QdrantConnection:
     """
@@ -33,16 +35,16 @@ class QdrantConnection:
         used to perform further operations on the server such as creating
         collections, inserting points, and running queries.
     """
+
     def __init__(self, url="localhost", port=6333):
         self.client = QdrantClient(
             url=url,
             port=port,
-            prefer_grpc=True, # Use gRPC for better performance
+            prefer_grpc=True,  # Use gRPC for better performance
             # api_key=os.environ.get("QDRANT_API_KEY"),
         )
         # self.model = None
         self.client.set_model(EMBEDDINGS_MODEL)
-
 
     def create_collection(self, collection_name: str, vector_size):
         """
@@ -65,9 +67,11 @@ class QdrantConnection:
                 collection_name=collection_name,
                 vectors_config=self.client.get_fastembed_vector_params(on_disk=True),
                 # Quantization is optional, but it can significantly reduce the memory usage
-                quantization_config=models.ScalarQuantization
-                    (scalar=models.ScalarQuantizationConfig(
-                    type=models.ScalarType.INT8, quantile=0.99, always_ram=True))
+                quantization_config=models.ScalarQuantization(
+                    scalar=models.ScalarQuantizationConfig(
+                        type=models.ScalarType.INT8, quantile=0.99, always_ram=True
+                    )
+                ),
             )
             self.client.create_payload_index(
                 collection_name=collection_name,
@@ -85,12 +89,9 @@ class QdrantConnection:
             logger.error("Failed to create collection %s: %s", collection_name, error)
             raise error
 
-
     # def insert_vector(self, collection_name, documents, payload, ids):
     def insert_vector(self, collection_name, documents, payload):
         """
-        _summary_
-
         This function inserts documents into a specified collection in the Qdrant server.
 
         Args:
@@ -115,12 +116,11 @@ class QdrantConnection:
             collection_name=collection_name,
             documents=documents,
             metadata=payload,
-            #ids="bf4d7b0e-b34d-2fd8-d292-6049c4f7efc7",
-            parallel=0
+            # ids="bf4d7b0e-b34d-2fd8-d292-6049c4f7efc7",
+            parallel=0,
         )
         # logger.info("Inserted %d vectors into collection %s", len(documents), collection_name)
         return True
-
 
     def update_vector(self, collection_name, id_value, id_key, id_value2, id_key2):
         """
@@ -142,25 +142,26 @@ class QdrantConnection:
         Returns:
             bool: True if the deletion was successful, False otherwise.
         """
-        
+
         filter_conditions = [
             models.FieldCondition(key=id_key, match=models.MatchValue(value=id_value)),
-         ]
+        ]
         if id_key2 and id_value2:
-            filter_conditions.append(models.FieldCondition(key=id_key2, match=models.MatchValue(value=id_value2)))
+            filter_conditions.append(
+                models.FieldCondition(
+                    key=id_key2, match=models.MatchValue(value=id_value2)
+                )
+            )
 
-        print (filter_conditions)
+        print(filter_conditions)
         records, point_ids = self.client.scroll(
-        collection_name=collection_name,
-        scroll_filter=models.Filter(
-            must=filter_conditions
-        ),
-        limit=int(100),
-        offset=int(0),
-        with_payload=True,
-        with_vectors=False,
+            collection_name=collection_name,
+            scroll_filter=models.Filter(must=filter_conditions),
+            limit=int(100),
+            offset=int(0),
+            with_payload=True,
+            with_vectors=False,
         )
-        
 
         if records:
             point_ids = [record.id for record in records]
@@ -193,6 +194,7 @@ class NeuralSearcher:
         used to perform further operations on the server such as creating
         collections, inserting points, and running queries.
     """
+
     def __init__(self, collection_name: str, url="localhost", port=6333):
         self.collection_name = collection_name
         self.client = QdrantClient(
@@ -202,7 +204,6 @@ class NeuralSearcher:
         )
         self.client.set_model(EMBEDDINGS_MODEL)
         self.search_limit = 5  # Default search limit
-
 
     def search(self, text: str, filter_: dict = None) -> List[dict]:
         """
@@ -225,8 +226,8 @@ class NeuralSearcher:
             collection_name=self.collection_name,
             query_text=text,
             query_filter=Filter(**filter_) if filter_ else None,
-            #limit=self.search_limit
-            limit=5
+            # limit=self.search_limit
+            limit=5,
         )
         logger.info(f"Search took {time.time() - start_time} seconds")
         logger.info(f"Query response: {query_response}")
@@ -234,4 +235,3 @@ class NeuralSearcher:
         if not hits:
             logger.info("No hits found for query: %s with filter: %s", text, filter_)
         return hits
-
