@@ -63,7 +63,7 @@ class QdrantConnection:
         """
         vector_size = int(vector_size)
         try:
-            self.client.recreate_collection(
+            self.client.create_collection(
                 collection_name=collection_name,
                 vectors_config=self.client.get_fastembed_vector_params(on_disk=True),
                 # Quantization is optional, but it can significantly reduce the memory usage
@@ -86,8 +86,16 @@ class QdrantConnection:
             )
             logger.info("Collection %s created successfully.", collection_name)
         except Exception as error:
-            logger.error("Failed to create collection %s: %s", collection_name, error)
-            raise error
+            error_message = str(error)
+            if "already exists" in error_message:
+                formatted_error = f"Collection {collection_name} already exists."
+            else:
+                # Extract only the detail message from the error
+                detail_start = error_message.find("details = \"") + len("details = \"")
+                detail_end = error_message.find("\"", detail_start)
+                formatted_error = error_message[detail_start:detail_end]
+            logger.error("Failed to create collection %s: %s", collection_name, formatted_error)
+            raise Exception(formatted_error)
 
     # def insert_vector(self, collection_name, documents, payload, ids):
     def insert_vector(self, collection_name, documents, payload):
