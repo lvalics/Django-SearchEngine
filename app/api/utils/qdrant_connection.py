@@ -115,8 +115,8 @@ class QdrantConnection:
             collection_name=collection_name,
             documents=documents,
             metadata=payload,
-            parallel=1,
-            # ids=ids
+            #ids="bf4d7b0e-b34d-2fd8-d292-6049c4f7efc7",
+            parallel=0
         )
         # logger.info("Inserted %d vectors into collection %s", len(documents), collection_name)
         return True
@@ -221,22 +221,17 @@ class NeuralSearcher:
             search result. Each dictionary contains the 'id' of the result and its 'vector'.
         """
         start_time = time.time()
-        hits = self.client.query(
+        query_response = self.client.query(
             collection_name=self.collection_name,
             query_text=text,
             query_filter=Filter(**filter_) if filter_ else None,
-            limit=self.search_limit
+            #limit=self.search_limit
+            limit=5
         )
-        logger.info("Search completed in %f seconds."
-                    "Hits found: %d", time.time() - start_time, len(hits))
-        return [hit.metadata for hit in hits]
+        logger.info(f"Search took {time.time() - start_time} seconds")
+        logger.info(f"Query response: {query_response}")
+        hits = [hit.metadata for hit in query_response]
+        if not hits:
+            logger.info("No hits found for query: %s with filter: %s", text, filter_)
+        return hits
 
-    def set_search_limit(self, limit: int):
-        """
-        Set the limit for the number of search results.
-
-        Parameters:
-        limit (int): The maximum number of search results to return.
-        """
-        self.search_limit = limit
-        logger.info("Search limit set to %d.", limit)
