@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 class QdrantConnection:
     def __init__(self):
         self.initialize_client(url=None, port=None)
+
     """
     This function establishes a connection to the Qdrant server.
     It uses the provided server address and port number to establish a connection
@@ -104,8 +105,8 @@ class QdrantConnection:
             )
             raise Exception(formatted_error)
 
-    # def insert_vector(self, collection_name, documents, payload, ids):
-    def insert_vector(self, collection_name, documents, payload):
+    # def insert_vector(self, collection_name, document, payload, ids):
+    def insert_vector(self, collection_name, document, payload):
         """
         This function inserts documents into a specified collection in the Qdrant server.
 
@@ -129,12 +130,16 @@ class QdrantConnection:
         """
         self.client.add(
             collection_name=collection_name,
-            documents=documents,
+            documents=[
+                f"{document}",
+            ],
             metadata=payload,
             # ids="bf4d7b0e-b34d-2fd8-d292-6049c4f7efc7",
             parallel=0,
         )
-        # logger.info("Inserted %d vectors into collection %s", len(documents), collection_name)
+        logger.info(
+            "Inserted %d vectors into collection %s", len(document), collection_name
+        )
         return True
 
     def update_vector(self, collection_name, id_value, id_key, id_value2, id_key2):
