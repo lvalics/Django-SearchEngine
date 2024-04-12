@@ -13,17 +13,17 @@ import os
 import logging
 import time
 from typing import List
+
+# import numpy as np
+import re
 from qdrant_client import QdrantClient, models
-from qdrant_client.http.models.models import Filter
+from qdrant_client.models import Filter, FieldCondition, MatchText
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
 
 logger = logging.getLogger(__name__)
 
 
 class QdrantConnection:
-    def __init__(self):
-        self.initialize_client(url=None, port=None)
-
     """
     This function establishes a connection to the Qdrant server.
     It uses the provided server address and port number to establish a connection
@@ -40,7 +40,10 @@ class QdrantConnection:
         collections, inserting points, and running queries.
     """
 
-    def initialize_client(self, url=None, port=None):
+    def __init__(self):
+        self.initialize_client()
+
+    def initialize_client(self):
         self.client = QdrantClient(
             url=os.environ.get("QDRANT_URL"),
             port=os.environ.get("QDRANT_PORT"),
@@ -72,6 +75,11 @@ class QdrantConnection:
             self.client.create_collection(
                 collection_name=collection_name,
                 vectors_config=self.client.get_fastembed_vector_params(on_disk=True),
+                # vectors_config=models.VectorParams(
+                #     size=vector_size,
+                #     distance=models.Distance.Metric.COSINE,
+                #     on_disk=True,
+                # ),
                 # Quantization is optional, but it can significantly reduce the memory usage
                 quantization_config=models.ScalarQuantization(
                     scalar=models.ScalarQuantizationConfig(
@@ -194,8 +202,6 @@ class QdrantConnection:
             )
             deleted_ids = [str(point_id) for point_id in point_ids]
             return deleted_ids
-        else:
-            logger.info("No points found for the source '%s'", id)
 
 
 class NeuralSearcher:
@@ -219,9 +225,9 @@ class NeuralSearcher:
     def __init__(self, collection_name: str):
         self.collection_name = collection_name
         qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client(url=None, port=None)
+        qdrant_connection.initialize_client()
         self.client = qdrant_connection.client
-        self.search_limit = 5  # Default search limit
+        self.search_limit = 1  # Default search limit
 
     def search(self, text: str, filter_: dict = None) -> List[dict]:
         """
@@ -239,20 +245,106 @@ class NeuralSearcher:
             List[dict]: A list of dictionaries where each dictionary represents a
             search result. Each dictionary contains the 'id' of the result and its 'vector'.
         """
+        # query_vector = np.random.rand(100)
+
+
+class NeuralSearcher:
+    def __init__(self, collection_name: str):
+        self.collection_name = collection_name
+        qdrant_connection = QdrantConnection()
+        qdrant_connection.initialize_client()
+        self.client = qdrant_connection.client
+
+    def search(
+        self, text: str, filter_: dict = None, search_limit: int = 10
+    ) -> List[dict]:
+        if filter_ is None:
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key=TEXT_FIELD_NAME,
+                        condition=models.Condition(match=models.MatchValue(value=text)),
+                    )
+                ]
+            )
+        else:
+            query_filter = models.Filter(**filter_)
+
+        logger.info(f"query_filter {query_filter} for {text}.")
         start_time = time.time()
+        # query_response = self.client.search(
+        #     collection_name=self.collection_name,
+        #     query_filter=query_filter,
+        #     limit=self.search_limit,
+        #     query_vector=query_vector.tolist(),
+        # )
         query_response = self.client.query(
             collection_name=self.collection_name,
             query_text=text,
             query_filter=Filter(**filter_) if filter_ else None,
-            # limit=self.search_limit
-            limit=5,
+            limit=search_limit,
         )
-        logger.info(f"Search took {time.time() - start_time} seconds")
-        logger.info(f"Query response: {query_response}")
+        if query_response is None:
+            logger.info(
+                "Query response is None for query: %s with filter: %s", text, filter_
+            )
+            return [], start_time
+        else:
+            hits = [
+                {k: v for k, v in hit.metadata.items() if k != "document"}
+                for hit in query_response
+            ]
+            if not hits:
+                logger.info(
+                    "No hits found for query: %s with filter: %s", text, filter_
+                )
+            return hits, start_time
+
+
+class TextSearcher:
+
+    def __init__(self, collection_name: str):
+        self.collection_name = collection_name
+        self.highlight_field = TEXT_FIELD_NAME
+        qdrant_connection = QdrantConnection()
+        qdrant_connection.initialize_client()
+        self.client = qdrant_connection.client
+
+    def highlight(self, record, text) -> dict:
+        text = record[self.highlight_field]
+
+        for word in text.lower().split():
+            if len(word) > 4:
+                pattern = re.compile(
+                    rf"(\b{re.escape(word)}?.?\b)", flags=re.IGNORECASE
+                )
+            else:
+                pattern = re.compile(rf"(\b{re.escape(word)}\b)", flags=re.IGNORECASE)
+            text = re.sub(pattern, r"<b>\1</b>", text)
+
+        record[self.highlight_field] = text
+        return record
+
+    def search(self, text: str, search_limit: int = 10) -> List[dict]:
+        start_time = time.time()
+        query_response = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key=TEXT_FIELD_NAME,
+                        match=MatchText(text=text),
+                    )
+                ]
+            ),
+            with_payload=True,
+            with_vectors=False,
+            limit=int(search_limit),
+        )
         hits = [
-            {k: v for k, v in hit.metadata.items() if k != "document"}
-            for hit in query_response
+            {k: v for k, v in hit.payload.items() if k != "document"}
+            for hit in query_response[0]
         ]
         if not hits:
-            logger.info("No hits found for query: %s with filter: %s", text, filter_)
+            logger.info("No hits found for query: %s", text)
         return hits, start_time

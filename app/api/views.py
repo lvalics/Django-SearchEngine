@@ -18,7 +18,7 @@ from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-from api.utils.qdrant_connection import NeuralSearcher, QdrantConnection
+from api.utils.qdrant_connection import NeuralSearcher, TextSearcher, QdrantConnection
 from api.serializers import MessageSerializer
 from app.permissions import IsOwner
 
@@ -190,14 +190,23 @@ def search_in_vector_database(request):
         request (HttpRequest): The request object that encapsulates all of the HTTP request data.
         This includes data like the method (GET, POST, etc.), headers, user information,
         and any data sent in the body of the request.
+        Limit was moved to parameter.
+
+    params:
+        q=QUERY (mandatory)
+        collection_name=COLLECTION_NAME (mandatory)
+        limit=1 (optional, default 10)
+        type=neural (or text by default)
 
     Returns:
         HttpResponse: The response object that encapsulates all of the HTTP response data.
         This includes data like the status code, headers, and any data sent in the body of
         the response.
     """
-    q = request.GET.get("q")
     collection_name = request.GET.get("collection_name")
+    q = request.GET.get("q")
+    search_type = request.GET.get("type")
+    search_limit = request.GET.get("limit")
     if not q:
         return Response(
             {"error": "Query parameter 'q' is required."},
@@ -210,9 +219,18 @@ def search_in_vector_database(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    text_searcher = TextSearcher(collection_name=collection_name)
+    neural_searcher = NeuralSearcher(collection_name=collection_name)
+
+    if search_type == "text" or not search_type:
+        do_search = text_searcher.search(text=q, search_limit=search_limit)
+        logging.info("Text search")
+    else:
+        do_search = neural_searcher.search(text=q, search_limit=search_limit)
+        logging.info("Neural  search")
+
     try:
-        searcher = NeuralSearcher(collection_name=collection_name)
-        search_results, start_time = searcher.search(text=q)
+        search_results, start_time = do_search
         search_time_seconds = time.time() - start_time
         response_data = {
             "results": search_results,
@@ -220,7 +238,7 @@ def search_in_vector_database(request):
         }
         return Response(response_data, status=status.HTTP_200_OK)
     except Exception as error:
-        ...
+
         logger.exception("Unhandled exception during search: %s", str(error))
         return Response(
             {

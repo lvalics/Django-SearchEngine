@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 .aider*
 qdrant_demo/*
+test_code.txt
