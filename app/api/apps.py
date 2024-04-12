@@ -1,13 +1,14 @@
 """
 This file is used to configure the app name.
 """
+
 from django.apps import AppConfig
 
 
 class ApiConfig(AppConfig):
     """
     This class is a subclass of AppConfig and is used to hold
-    configuration for a specific application in the Django project. 
+    configuration for a specific application in the Django project.
 
     Args:
         AppConfig (Django AppConfig): This is the base class for all
@@ -26,5 +27,6 @@ class ApiConfig(AppConfig):
         application's models. If not provided, Django will use the 'models'
         module within the application's package.
     """
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'api'
+
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "api"

@@ -11,11 +11,7 @@ Returns:
 
 import os
 import logging
-import time
 from typing import List
-
-# import numpy as np
-import re
 from qdrant_client import QdrantClient, models
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
 
@@ -101,16 +97,12 @@ class QdrantConnection:
         except Exception as error:
             error_message = str(error)
             if "already exists" in error_message:
-                formatted_error = f"Collection {collection_name} already exists."
-            else:
-                # Extract only the detail message from the error
-                detail_start = error_message.find('details = "') + len('details = "')
-                detail_end = error_message.find('"', detail_start)
-                formatted_error = error_message[detail_start:detail_end]
-            logger.error(
-                "Failed to create collection %s: %s", collection_name, formatted_error
-            )
-            raise Exception(formatted_error)
+                return {
+                    "error": f"Collection {collection_name} already exists. Proceeding without creating a new one."
+                }
+        else:
+            logger.info("Collection %s created successfully.", collection_name)
+            return {"message": f"Collection {collection_name} created successfully."}
 
     # def insert_vector(self, collection_name, document, payload, ids):
     def insert_vector(self, collection_name, document, payload):

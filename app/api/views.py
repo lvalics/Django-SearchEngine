@@ -10,7 +10,8 @@ Returns:
     HttpResponse: A HttpResponse object containing the rendered template.
 """
 
-import os.path, time
+import os.path
+import time
 import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -37,7 +38,8 @@ class HelloWorldApiView(APIView):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated, IsOwner]
 
-    def get(self):
+    @staticmethod
+    def get(_):
         """DJ-SE"""
         return Response({"message": "DJ-SE"}, status=status.HTTP_200_OK)
 
@@ -59,18 +61,15 @@ def create_qdrant_collection_name(request):
             {"error": "collection_name is required"}, status=status.HTTP_400_BAD_REQUEST
         )
 
-    if not collection_name:
-        return Response(
-            {"error": "Query parameter 'collection_name' is required."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
 
     try:
         vector_size = int(os.getenv("VECTOR_SIZE", "1536"))
         qdrant = QdrantConnection()
-        qdrant.create_collection(collection_name, vector_size)
+        creation_result = qdrant.create_collection(collection_name, vector_size)
+        if "error" in creation_result:
+            return Response(creation_result, status=status.HTTP_409_CONFLICT)
 
-    except Exception as error:
+    except (ValueError, ConnectionError, KeyError, TypeError, IndexError) as error:
         return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(
@@ -78,20 +77,16 @@ def create_qdrant_collection_name(request):
     )
 
 
-def process_vector_data(
-    collection_name, document, payload, id_value, id_key, id_value2, id_key2
-):
+def process_vector_data(data):
     """
     Process vector data by updating and inserting vectors into the Qdrant database...
     """
     data_deleted = False
     data_inserted = False
     qdrant = QdrantConnection()
-    if id_value and id_key:
-        data_deleted = qdrant.update_vector(
-            collection_name, id_value, id_key, id_value2, id_key2
-        )
-    data_inserted = qdrant.insert_vector(collection_name, document, [payload])
+    if data.get('id_value') and data.get('id_key'):
+        data_deleted = qdrant.update_vector(**data)
+    data_inserted = qdrant.insert_vector(data['collection_name'], data['document'], [data['payload']])
     return data_deleted, data_inserted
 
 
@@ -130,19 +125,34 @@ def embed_data_into_vector_database(request):
             None,
         )
         response_data = {"SUCCESS": payload}
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        response = Response(response_data, status=status.HTTP_201_CREATED)
 
-    except Exception as error:
+    except (ValueError, ConnectionError, KeyError, TypeError, IndexError) as error:
         logger.exception("Unhandled exception during data insertion: %s", str(error))
-        return Response(
+        response = Response(
             {"error": f"Failed to insert data due to an internal error. {str(error)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    return response
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def update_data_into_vector_database(request):
+    """
+    This function handles the HTTP requests to a specific view in the Django application.
+    It takes a request object and returns a response object.
+
+    Args:
+        request (HttpRequest): The request object that encapsulates all of the
+        HTTP request data. This includes data like the method (GET, POST, etc.),
+        headers, user information, and any data sent in the body of the request.
+
+    Returns:
+        HttpResponse: The response object that encapsulates all of the HTTP
+        response data. This includes data like the status code, headers, and
+        any data sent in the body of the response.
+    """
     data_deleted = False
     data_inserted = False
     try:
@@ -175,7 +185,7 @@ def update_data_into_vector_database(request):
                 status=status.HTTP_200_OK if data_deleted else status.HTTP_201_CREATED,
             )
 
-    except Exception as error:
+    except (ValueError, ConnectionError, KeyError, TypeError, IndexError) as error:
         return Response(
             {"error": str(error)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -239,7 +249,7 @@ def search_in_vector_database(request):
             "search_time_seconds": round(search_time_seconds, 2),
         }
         return Response(response_data, status=status.HTTP_200_OK)
-    except Exception as error:
+    except (ValueError, ConnectionError, KeyError, TypeError, IndexError) as error:
 
         logger.exception("Unhandled exception during search: %s", str(error))
         return Response(
