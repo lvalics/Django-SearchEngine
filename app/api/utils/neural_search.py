@@ -36,7 +36,7 @@ class NeuralSearcher:
             else Filter(**filter_)
         )
 
-        logger.info(f"query_filter {query_filter} for {text}.")
+        # logger.info(f"query_filter {query_filter} for {text}.")
         start_time = time.time()
         query_response = self.client.query(
             collection_name=self.collection_name,
@@ -51,7 +51,10 @@ class NeuralSearcher:
             return [], start_time
         else:
             hits = [
-                {k: v for k, v in hit.metadata.items() if k != "document"}
+                {
+                    "score": hit.score,
+                    "data": {k: v for k, v in hit.metadata.items() if k != "document"},
+                }
                 for hit in query_response
             ]
             if not hits:
