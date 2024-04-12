@@ -23,30 +23,25 @@ class NeuralSearcher:
     def search(
         self, text: str, filter_: dict = None, search_limit: int = 10
     ) -> List[dict]:
-        if filter_ is None:
-            query_filter = models.Filter(
+        query_filter = (
+            Filter(
                 must=[
-                    models.FieldCondition(
+                    FieldCondition(
                         key=TEXT_FIELD_NAME,
-                        condition=models.Condition(match=models.MatchValue(value=text)),
+                        match=MatchText(text=text),
                     )
                 ]
             )
-        else:
-            query_filter = models.Filter(**filter_)
+            if filter_ is None
+            else Filter(**filter_)
+        )
 
         logger.info(f"query_filter {query_filter} for {text}.")
         start_time = time.time()
-        # query_response = self.client.search(
-        #     collection_name=self.collection_name,
-        #     query_filter=query_filter,
-        #     limit=self.search_limit,
-        #     query_vector=query_vector.tolist(),
-        # )
         query_response = self.client.query(
             collection_name=self.collection_name,
             query_text=text,
-            query_filter=Filter(**filter_) if filter_ else None,
+            query_filter=query_filter,
             limit=search_limit,
         )
         if query_response is None:

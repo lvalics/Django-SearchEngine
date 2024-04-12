@@ -208,7 +208,7 @@ def search_in_vector_database(request):
     collection_name = request.GET.get("collection_name")
     q = request.GET.get("q")
     search_type = request.GET.get("type")
-    search_limit = request.GET.get("limit")
+    search_limit = int(request.GET.get("limit", 10))
     if not q:
         return Response(
             {"error": "Query parameter 'q' is required."},
