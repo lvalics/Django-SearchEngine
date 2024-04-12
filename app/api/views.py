@@ -18,7 +18,9 @@ from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-from api.utils.qdrant_connection import NeuralSearcher, TextSearcher, QdrantConnection
+from api.utils.qdrant_connection import QdrantConnection
+from api.utils.neural_search import NeuralSearcher
+from api.utils.text_search import TextSearcher
 from api.serializers import MessageSerializer
 from app.permissions import IsOwner
 
