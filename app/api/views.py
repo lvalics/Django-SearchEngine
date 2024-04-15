@@ -255,7 +255,7 @@ def search_in_vector_database(request):
         logging.info("Text search")
     else:
         do_search = neural_searcher.search(text=q, search_limit=search_limit)
-        logging.info("Neural  search")
+        logging.info("Neural search")
 
     try:
         search_results, start_time = do_search
