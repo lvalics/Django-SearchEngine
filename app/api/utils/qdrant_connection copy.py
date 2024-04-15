@@ -11,13 +11,8 @@ Returns:
 
 import os
 import logging
-import time
 from typing import List
-
-# import numpy as np
-import re
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import Filter, FieldCondition, MatchText
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
 
 logger = logging.getLogger(__name__)
@@ -102,18 +97,15 @@ class QdrantConnection:
         except Exception as error:
             error_message = str(error)
             if "already exists" in error_message:
-                formatted_error = f"Collection {collection_name} already exists."
-            else:
-                # Extract only the detail message from the error
-                detail_start = error_message.find('details = "') + len('details = "')
-                detail_end = error_message.find('"', detail_start)
-                formatted_error = error_message[detail_start:detail_end]
-            logger.error(
-                "Failed to create collection %s: %s", collection_name, formatted_error
-            )
-            raise Exception(formatted_error)
+                return {
+                    "error": f"Collection {collection_name} already exists. Proceeding without creating a new one."
+                }
+        else:
+            logger.info("Collection %s created successfully.", collection_name)
+            return {"message": f"Collection {collection_name} created successfully."}
 
-    def insert_vector(self, collection_name, document: dict, payload: dict):
+    # def insert_vector(self, collection_name, document, payload, ids):
+    def insert_vector(self, collection_name, document, payload):
         """
         This function inserts documents into a specified collection in the Qdrant server.
 
@@ -141,6 +133,7 @@ class QdrantConnection:
                 f"{document}",
             ],
             metadata=payload,
+            # ids="bf4d7b0e-b34d-2fd8-d292-6049c4f7efc7",
             parallel=0,
         )
         logger.info(
@@ -200,149 +193,3 @@ class QdrantConnection:
             )
             deleted_ids = [str(point_id) for point_id in point_ids]
             return deleted_ids
-
-
-class NeuralSearcher:
-    """
-    This function establishes a connection to the Qdrant server.
-    It uses the provided server address and port number to establish a connection
-    and returns a connection object that can be used for further interactions
-    with the server.
-
-    Raises:
-        ConnectionError: If the connection to the Qdrant server cannot be established.
-        This could be due to a number of reasons such as the server being down,
-        incorrect address or port, or network issues.
-
-    Returns:
-        Connection: A connection object to the Qdrant server. This object can be
-        used to perform further operations on the server such as creating
-        collections, inserting points, and running queries.
-    """
-
-    def __init__(self, collection_name: str):
-        self.collection_name = collection_name
-        qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client()
-        self.client = qdrant_connection.client
-        self.search_limit = 1  # Default search limit
-
-    def search(self, text: str, filter_: dict = None) -> List[dict]:
-        """
-        This function performs a search operation on the Qdrant server. It takes a text
-        query and an optional filter parameter to narrow down the search results.
-
-        Args:
-            text (str): The text query to be searched on the Qdrant server.
-            This could be a single word or a phrase.
-            filter_ (dict, optional): A dictionary containing additional filtering
-            parameters for the search. This could include parameters like 'collection',
-            'vector', etc. Defaults to None.
-
-        Returns:
-            List[dict]: A list of dictionaries where each dictionary represents a
-            search result. Each dictionary contains the 'id' of the result and its 'vector'.
-        """
-        # query_vector = np.random.rand(100)
-
-
-class NeuralSearcher:
-    def __init__(self, collection_name: str):
-        self.collection_name = collection_name
-        qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client()
-        self.client = qdrant_connection.client
-
-    def search(
-        self, text: str, filter_: dict = None, search_limit: int = 10
-    ) -> List[dict]:
-        if filter_ is None:
-            query_filter = models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key=TEXT_FIELD_NAME,
-                        condition=models.Condition(match=models.MatchValue(value=text)),
-                    )
-                ]
-            )
-        else:
-            query_filter = models.Filter(**filter_)
-
-        logger.info(f"query_filter {query_filter} for {text}.")
-        start_time = time.time()
-        # query_response = self.client.search(
-        #     collection_name=self.collection_name,
-        #     query_filter=query_filter,
-        #     limit=self.search_limit,
-        #     query_vector=query_vector.tolist(),
-        # )
-        query_response = self.client.query(
-            collection_name=self.collection_name,
-            query_text=text,
-            query_filter=Filter(**filter_) if filter_ else None,
-            limit=search_limit,
-        )
-        if query_response is None:
-            logger.info(
-                "Query response is None for query: %s with filter: %s", text, filter_
-            )
-            return [], start_time
-        else:
-            hits = [
-                {k: v for k, v in hit.metadata.items() if k != "document"}
-                for hit in query_response
-            ]
-            if not hits:
-                logger.info(
-                    "No hits found for query: %s with filter: %s", text, filter_
-                )
-            return hits, start_time
-
-
-class TextSearcher:
-
-    def __init__(self, collection_name: str):
-        self.collection_name = collection_name
-        self.highlight_field = TEXT_FIELD_NAME
-        qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client()
-        self.client = qdrant_connection.client
-
-    def highlight(self, record, text) -> dict:
-        text = record[self.highlight_field]
-
-        for word in text.lower().split():
-            if len(word) > 4:
-                pattern = re.compile(
-                    rf"(\b{re.escape(word)}?.?\b)", flags=re.IGNORECASE
-                )
-            else:
-                pattern = re.compile(rf"(\b{re.escape(word)}\b)", flags=re.IGNORECASE)
-            text = re.sub(pattern, r"<b>\1</b>", text)
-
-        record[self.highlight_field] = text
-        return record
-
-    def search(self, text: str, search_limit: int = 10) -> List[dict]:
-        start_time = time.time()
-        query_response = self.client.scroll(
-            collection_name=self.collection_name,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key=TEXT_FIELD_NAME,
-                        match=MatchText(text=text),
-                    )
-                ]
-            ),
-            with_payload=True,
-            with_vectors=False,
-            limit=int(search_limit),
-        )
-        hits = [
-            {k: v for k, v in hit.payload.items() if k != "document"}
-            for hit in query_response[0]
-        ]
-        if not hits:
-            logger.info("No hits found for query: %s", text)
-        return hits, start_time
