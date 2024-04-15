@@ -51,7 +51,9 @@ class HelloWorldApiView(APIView):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
+@csrf_exempt
 def create_qdrant_collection_name(request):
     """
     Create a new collection in Qdrant. Will create IDUser +
@@ -132,11 +134,33 @@ def embed_data_into_vector_database(request):
 
 
 @api_view(["POST"])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
+@csrf_exempt
 def update_data_into_vector_database(request):
     """
     This function handles the HTTP requests to a specific view in the Django application.
     It takes a request object and returns a response object.
+
+    This endpoint expects a JSON payload with the following structure:
+    {
+        "filter_conditions": {
+            "companyID": "1772",
+            "type": "business"
+        },
+        "collection_name": "COLLECTION_NAME",
+        "payload": [{
+            "companyID": 1772,
+            "name": "NameHere",
+            "address": "SomeAddress",
+            "url": "something.com",
+            "description": "a short description",
+            "publicContactPhone": "0257-557555555",
+            "category": "store",
+            "type": "business"
+        }],
+        "data":  "Any other document-specific information which will be searchable"
+    }
 
     Args:
         request (HttpRequest): The request object that encapsulates all of the
