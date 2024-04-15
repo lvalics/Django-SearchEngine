@@ -17,7 +17,11 @@ import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.views.decorators.csrf import csrf_exempt
@@ -82,89 +86,45 @@ def create_qdrant_collection_name(request):
     )
 
 
-def process_vector_data(data):
-    """
-    Process vector data by updating and inserting vectors into the Qdrant database...
-    """
-    qdrant = QdrantConnection()
-    # Assuming filter_conditions is a dictionary like {"companyID": "1772", "type": "primarie"}
-    filter_conditions = data.get("filter_conditions", {})
-    collection_name = data.get("collection_name")
-    document = data.get("document")
-    payload = data.get("payload")
-
-    # Convert filter_conditions into a format suitable for Qdrant update_vector method
-    if filter_conditions:
-        # Update vector if filter_conditions are provided
-        data_deleted = qdrant.update_vector(
-            collection_name=collection_name, filter_conditions=filter_conditions
-        )
-    else:
-        data_deleted = False
-
-    # Insert vector
-    data_inserted = qdrant.insert_vector(collection_name, document, payload)
-
-    return data_deleted, data_inserted
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def embed_data_into_vector_database(request):
-    """
-    This function handles the HTTP requests to a specific view in the Django application.
-    It takes a request object and returns a response object.
-
-    Args:
-        request (HttpRequest): The request object that encapsulates all of the HTTP request data.
-        This includes data like the method (GET, POST, etc.), headers, user information,
-        and any data sent in the body of the request.
-
-    Returns:
-        HttpResponse: The response object that encapsulates all of the HTTP response data.
-        This includes data like the status code, headers, and any data sent in the body
-        of the response.
-    """
-
-
 @api_view(["POST"])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 @csrf_exempt
 def embed_data_into_vector_database(request):
+    """
+    This endpoint expects a JSON payload with the following structure:
+    {
+        "collection_name": "COLLECTION_NAME",
+        "payload": [{
+            "companyID": 1772,
+            "name": "NameHere",
+            "address": "SomeAddress",
+            "url": "something.com",
+            "description": "a short description",
+            "publicContactPhone": "0257-557555555",
+            "category": "store",
+            "type": "business"
+        }],
+        "data":  "Any other document-specific information which will be searchable"
+    }
+
+    Where:
+    - "collection_name" is the name of the Qdrant collection to insert the vector into.
+    - "payload" is a dictionary containing any additional data to be associated with the vector.
+    - "data" is the actual document data including the vector and its ID.
+    """
     try:
         collection_name = request.data.get("collection_name")
         payload = request.data.get("payload")
         document_data = request.data.get("data")
-        # Ensure document is properly formatted as a dictionary
-        # Ensure document is properly formatted as a dictionary
-        if document_data and isinstance(document_data, str):
-            document = json.loads(document_data)
-        else:
-            document = document_data
-
-        if not collection_name or not payload or document is None:
-            return Response(
-                {"error": "Missing required fields."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         qdrant = QdrantConnection()
-        success = qdrant.insert_vector(
-            collection_name=collection_name, document=document, payload=payload
-        )
+        qdrant.insert_vector(collection_name, document_data, payload)
+        response_data = {"SUCCESS": payload}
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
-        if success:
-            return Response(
-                {"success": "Data successfully inserted into vector database."},
-                status=status.HTTP_201_CREATED,
-            )
-        else:
-            return Response(
-                {"error": "Failed to insert data into vector database."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
     except Exception as error:
+        logger.exception("Unhandled exception during data insertion: %s", str(error))
         return Response(
             {"error": f"Failed to insert data due to an internal error. {str(error)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -200,28 +160,26 @@ def update_data_into_vector_database(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        data = {
-            "collection_name": collection_name,
-            "document": document,
-            "payload": payload,
-            "filter_conditions": filter_conditions,
-        }
-        data_deleted, data_inserted = process_vector_data(data)
+        qdrant = QdrantConnection()
+        data_deleted = qdrant.update_vector(
+            collection_name=collection_name, filter_conditions=filter_conditions
+        )
 
-        response_data = {}
         if data_deleted:
-            response_data["DELETED_IDS"] = data_deleted
-        if data_inserted:
-            response_data["SUCCESS"] = payload
-        if response_data:
+            data_inserted = qdrant.insert_vector(collection_name, document, payload)
+            if data_inserted:
+                response_data["SUCCESS"] = payload
+            response_data = {"DELETED_IDS": data_deleted}
+            return Response(response_data, status=status.HTTP_200_OK)
+        else:
             return Response(
-                response_data,
-                status=status.HTTP_200_OK if data_deleted else status.HTTP_201_CREATED,
+                {"error": f"No records found for: {filter_conditions}"},
+                status=status.HTTP_404_NOT_FOUND,
             )
-
-    except (ValueError, ConnectionError, KeyError, TypeError, IndexError) as error:
+    except Exception as error:
+        logger.error(f"Error updating data in vector database: {str(error)}")
         return Response(
-            {"error": str(error)},
+            {"error": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 

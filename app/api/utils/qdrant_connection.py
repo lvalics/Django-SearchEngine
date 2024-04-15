@@ -13,9 +13,8 @@ import os
 import logging
 import time
 from typing import List
-
-# import numpy as np
 import re
+import json
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import Filter, FieldCondition, MatchText
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
@@ -50,10 +49,15 @@ class QdrantConnection:
             prefer_grpc=True,  # Use gRPC for better performance
             # api_key=os.environ.get("QDRANT_API_KEY"),
         )
-
+        embedding_model_name = EMBEDDINGS_MODEL
+        if not self.client._FASTEMBED_INSTALLED:
+            return "FastEmbed is not installed. Install fastembed to use this feature."
         if not hasattr(self.client, "model_set") or not self.client.model_set:
-            self.client.set_model(EMBEDDINGS_MODEL)
+            self.client.set_model(embedding_model_name=embedding_model_name)
             self.client.model_set = True
+            # Check if the model is initialized & cls.embeddings_models is set with expected values
+            dim, _ = self.client._get_model_params(embedding_model_name)
+            assert dim == 384
 
     def create_collection(self, collection_name: str, vector_size):
         """
@@ -127,49 +131,34 @@ class QdrantConnection:
         Returns:
             bool: True if the insertion was successful, False otherwise.
         """
-        if not isinstance(document, dict):
-            raise TypeError("document must be a dictionary")
-        if not isinstance(payload, dict):
-            raise TypeError("payload must be a dictionary")
-        # self.client.add(
-        #     collection_name=collection_name,
-        #     documents=[
-        #         f"{document}",
-        #     ],
-        #     metadata=payload,
-        #     parallel=0,
-        # )
-        # Merge payload into document if necessary or handle according to your requirements
-        document_with_payload = {**document, "payload": payload}
-        logger.debug(
-            "Inserting vector into collection: %s with payload: %s",
-            collection_name,
-            document_with_payload,
-        )
-        self.client.add(
-            collection_name=collection_name, documents=[document_with_payload]
-        )
+        try:
+            document_str = json.dumps(
+                document
+            )  # Convert document dict to a JSON string
+            self.client.add(
+                collection_name=collection_name,
+                documents=[document_str],
+                metadata=payload,
+                parallel=0,
+            )
+            return True
+        except Exception as error:
+            logger.error(
+                "Failed to insert vector into collection %s: %s",
+                collection_name,
+                str(error),
+            )
+            return False
 
-        logger.info(
-            "Inserted %d vectors into collection %s", len(document), collection_name
-        )
-        return True
-
-    def update_vector(
-        self, collection_name, id_value: str, id_key: str, id_value2: str, id_key2: str
-    ):
+    def update_vector(self, collection_name: str, filter_conditions: dict):
         """
         This function deletes a specific record from a collection in the Qdrant server.
 
         Args:
             collection_name (str): The name of the collection from which the record
             needs to be deleted.
-            id (int): The unique identifier of the record that needs to be deleted.
-            id_key (str): The key used for the unique identifier in the collection.
-            id_value2 (str, optional): The second unique identifier of the
-            record that needs to be matched.
-            id_key2 (str, optional): The key used for the second unique identifier
-            in the collection.
+            filter_conditions (dict): A dictionary representing the conditions to filter
+            the vectors that need to be updated or deleted.
 
         Raises:
             DeletionError: If there is an issue deleting the record from the collection.
@@ -181,201 +170,36 @@ class QdrantConnection:
         """
 
         logger.debug(
-            f"Updating vector in collection: {collection_name} with id_key: {id_key}, id_value: {id_value}, id_key2: {id_key2}, id_value2: {id_value2}"
+            f"Updating vector in collection: {collection_name} with filter_conditions: {filter_conditions}"
         )
-        try:
-            filter_conditions = []
-            if id_key and id_value:
-                filter_conditions.append(
-                    models.FieldCondition(
-                        key=id_key, match=models.MatchValue(value=id_value)
-                    )
-                )
-            if id_key2 and id_value2:
-                filter_conditions.append(
-                    models.FieldCondition(
-                        key=id_key2, match=models.MatchValue(value=id_value2)
-                    )
-                )
-            scroll_filter = models.Filter(must=filter_conditions)
-            logger.debug(f"Filter conditions: {scroll_filter}")
-            response = self.client.scroll(
-                collection_name=collection_name,
-                scroll_filter=scroll_filter,
-                limit=100,
-                offset=0,
-                with_payload=True,
-                with_vectors=False,
-            )
-            logger.debug(f"Response: {response}")
-
-            records = response.points if hasattr(response, "points") else []
-            point_ids = [record.id for record in records]
-            if not records:
-                logger.debug(
-                    f"No records found with the given filter conditions in collection: {collection_name}"
-                )
-                return None
-            else:
-                self.client.delete(
-                    collection_name=collection_name,
-                    points_selector=models.PointIdsList(
-                        points=point_ids,
-                    ),
-                )
-                deleted_ids = [str(point_id) for point_id in point_ids]
-                logger.debug(
-                    f"Deleted records: {deleted_ids} from collection: {collection_name}"
-                )
-                return deleted_ids
-        except Exception as e:
-            logger.error(
-                f"Error updating vector in collection: {collection_name}. Error: {str(e)}"
-            )
-            return None
-
-
-class NeuralSearcher:
-    """
-    This function establishes a connection to the Qdrant server.
-    It uses the provided server address and port number to establish a connection
-    and returns a connection object that can be used for further interactions
-    with the server.
-
-    Raises:
-        ConnectionError: If the connection to the Qdrant server cannot be established.
-        This could be due to a number of reasons such as the server being down,
-        incorrect address or port, or network issues.
-
-    Returns:
-        Connection: A connection object to the Qdrant server. This object can be
-        used to perform further operations on the server such as creating
-        collections, inserting points, and running queries.
-    """
-
-    def __init__(self, collection_name: str):
-        self.collection_name = collection_name
-        qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client()
-        self.client = qdrant_connection.client
-        self.search_limit = 1  # Default search limit
-
-    def search(self, text: str, filter_: dict = None) -> List[dict]:
-        """
-        This function performs a search operation on the Qdrant server. It takes a text
-        query and an optional filter parameter to narrow down the search results.
-
-        Args:
-            text (str): The text query to be searched on the Qdrant server.
-            This could be a single word or a phrase.
-            filter_ (dict, optional): A dictionary containing additional filtering
-            parameters for the search. This could include parameters like 'collection',
-            'vector', etc. Defaults to None.
-
-        Returns:
-            List[dict]: A list of dictionaries where each dictionary represents a
-            search result. Each dictionary contains the 'id' of the result and its 'vector'.
-        """
-        # query_vector = np.random.rand(100)
-
-
-class NeuralSearcher:
-    def __init__(self, collection_name: str):
-        self.collection_name = collection_name
-        qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client()
-        self.client = qdrant_connection.client
-
-    def search(
-        self, text: str, filter_: dict = None, search_limit: int = 10
-    ) -> List[dict]:
-        if filter_ is None:
-            query_filter = models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key=TEXT_FIELD_NAME,
-                        condition=models.Condition(match=models.MatchValue(value=text)),
-                    )
-                ]
-            )
-        else:
-            query_filter = models.Filter(**filter_)
-
-        logger.info(f"query_filter {query_filter} for {text}.")
-        start_time = time.time()
-        # query_response = self.client.search(
-        #     collection_name=self.collection_name,
-        #     query_filter=query_filter,
-        #     limit=self.search_limit,
-        #     query_vector=query_vector.tolist(),
-        # )
-        query_response = self.client.query(
-            collection_name=self.collection_name,
-            query_text=text,
-            query_filter=Filter(**filter_) if filter_ else None,
-            limit=search_limit,
-        )
-        if query_response is None:
-            logger.info(
-                "Query response is None for query: %s with filter: %s", text, filter_
-            )
-            return [], start_time
-        else:
-            hits = [
-                {k: v for k, v in hit.metadata.items() if k != "document"}
-                for hit in query_response
-            ]
-            if not hits:
-                logger.info(
-                    "No hits found for query: %s with filter: %s", text, filter_
-                )
-            return hits, start_time
-
-
-class TextSearcher:
-
-    def __init__(self, collection_name: str):
-        self.collection_name = collection_name
-        self.highlight_field = TEXT_FIELD_NAME
-        qdrant_connection = QdrantConnection()
-        qdrant_connection.initialize_client()
-        self.client = qdrant_connection.client
-
-    def highlight(self, record, text) -> dict:
-        text = record[self.highlight_field]
-
-        for word in text.lower().split():
-            if len(word) > 4:
-                pattern = re.compile(
-                    rf"(\b{re.escape(word)}?.?\b)", flags=re.IGNORECASE
-                )
-            else:
-                pattern = re.compile(rf"(\b{re.escape(word)}\b)", flags=re.IGNORECASE)
-            text = re.sub(pattern, r"<b>\1</b>", text)
-
-        record[self.highlight_field] = text
-        return record
-
-    def search(self, text: str, search_limit: int = 10) -> List[dict]:
-        start_time = time.time()
-        query_response = self.client.scroll(
-            collection_name=self.collection_name,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key=TEXT_FIELD_NAME,
-                        match=MatchText(text=text),
-                    )
-                ]
-            ),
+        must_conditions = [
+            models.FieldCondition(key=key, match=models.MatchValue(value=value))
+            for key, value in filter_conditions.items()
+        ]
+        scroll_filter = models.Filter(must=must_conditions)
+        logger.debug(f"Filter conditions: {scroll_filter}")
+        records, point_ids = self.client.scroll(
+            collection_name=collection_name,
+            scroll_filter=scroll_filter,
+            limit=100,
+            offset=0,
             with_payload=True,
             with_vectors=False,
-            limit=int(search_limit),
         )
-        hits = [
-            {k: v for k, v in hit.payload.items() if k != "document"}
-            for hit in query_response[0]
-        ]
-        if not hits:
-            logger.info("No hits found for query: %s", text)
-        return hits, start_time
+
+        if records:
+            logger.debug(f"Records found: {records}")
+            point_ids = [record.id for record in records]
+            self.client.delete(
+                collection_name=collection_name,
+                points_selector=models.PointIdsList(
+                    points=point_ids,
+                ),
+            )
+            deleted_ids = [str(point_id) for point_id in point_ids]
+            return deleted_ids
+        else:
+            logger.debug(
+                f"No records found for the given filter conditions: {filter_conditions}"
+            )
+            return False
