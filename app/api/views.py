@@ -10,7 +10,8 @@ Returns:
     HttpResponse: A HttpResponse object containing the rendered template.
 """
 
-import os.path, time
+import os.path
+import time
 import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,7 +19,9 @@ from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-from api.utils.qdrant_connection import NeuralSearcher, TextSearcher, QdrantConnection
+from api.utils.qdrant_connection import QdrantConnection
+from api.utils.neural_search import NeuralSearcher
+from api.utils.text_search import TextSearcher
 from api.serializers import MessageSerializer
 from app.permissions import IsOwner
 
@@ -35,7 +38,8 @@ class HelloWorldApiView(APIView):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated, IsOwner]
 
-    def get(self):
+    @staticmethod
+    def get(_):
         """DJ-SE"""
         return Response({"message": "DJ-SE"}, status=status.HTTP_200_OK)
 
@@ -51,24 +55,22 @@ def create_qdrant_collection_name(request):
     }
     """
     user = request.user
-    collection_name = f"{user.id}_{request.data.get('collection_name')}"
-    if not collection_name:
+    # collection_name = f"{user.id}_{request.data.get('collection_name')}"
+    raw_collection_name = request.data.get("collection_name")
+    if not raw_collection_name:
         return Response(
             {"error": "collection_name is required"}, status=status.HTTP_400_BAD_REQUEST
         )
-
-    if not collection_name:
-        return Response(
-            {"error": "Query parameter 'collection_name' is required."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    collection_name = f"{user.id}_{raw_collection_name}"
 
     try:
         vector_size = int(os.getenv("VECTOR_SIZE", "1536"))
         qdrant = QdrantConnection()
-        qdrant.create_collection(collection_name, vector_size)
+        creation_result = qdrant.create_collection(collection_name, vector_size)
+        if creation_result is not None:  # If creation_result contains an error message
+            return Response({"error": creation_result}, status=status.HTTP_400_BAD_REQUEST)
 
-    except Exception as error:
+    except (ValueError, ConnectionError, KeyError, TypeError, IndexError) as error:
         return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(

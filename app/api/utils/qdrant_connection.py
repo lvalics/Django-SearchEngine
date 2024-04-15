@@ -75,12 +75,6 @@ class QdrantConnection:
             self.client.create_collection(
                 collection_name=collection_name,
                 vectors_config=self.client.get_fastembed_vector_params(on_disk=True),
-                # vectors_config=models.VectorParams(
-                #     size=vector_size,
-                #     distance=models.Distance.Metric.COSINE,
-                #     on_disk=True,
-                # ),
-                # Quantization is optional, but it can significantly reduce the memory usage
                 quantization_config=models.ScalarQuantization(
                     scalar=models.ScalarQuantizationConfig(
                         type=models.ScalarType.INT8, quantile=0.99, always_ram=True
@@ -101,17 +95,15 @@ class QdrantConnection:
             logger.info("Collection %s created successfully.", collection_name)
         except Exception as error:
             error_message = str(error)
-            if "already exists" in error_message:
-                formatted_error = f"Collection {collection_name} already exists."
-            else:
-                # Extract only the detail message from the error
-                detail_start = error_message.find('details = "') + len('details = "')
-                detail_end = error_message.find('"', detail_start)
-                formatted_error = error_message[detail_start:detail_end]
+            formatted_error = (
+                "Collection already exists."
+                if "already exists" in error_message
+                else "Failed to create collection due to server error."
+            )
             logger.error(
                 "Failed to create collection %s: %s", collection_name, formatted_error
             )
-            raise Exception(formatted_error)
+            return formatted_error  # Return the error message instead of raising an exception
 
     def insert_vector(self, collection_name, document: dict, payload: dict):
         """
