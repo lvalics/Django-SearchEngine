@@ -118,6 +118,8 @@ def embed_data_into_vector_database(request):
     try:
         collection_name = request.data.get("collection_name")
         payload = request.data.get("payload")
+        if not isinstance(payload, list):
+            payload = [payload]
         document_data = request.data.get("data")
 
         qdrant = QdrantConnection()
@@ -174,9 +176,11 @@ def update_data_into_vector_database(request):
     """
     try:
         filter_conditions = request.data.get("filter_conditions", {})
-        payload = request.data.get("payload")
-        document = request.data.get("data")
         collection_name = request.data.get("collection_name")
+        payload = request.data.get("payload")
+        if not isinstance(payload, list):
+            payload = [payload]
+        document_data = request.data.get("data")
 
         if not filter_conditions or not collection_name:
             return Response(
@@ -188,12 +192,20 @@ def update_data_into_vector_database(request):
         data_deleted = qdrant.update_vector(
             collection_name=collection_name, filter_conditions=filter_conditions
         )
-
         if data_deleted:
-            data_inserted = qdrant.insert_vector(collection_name, document, payload)
+            data_inserted = qdrant.insert_vector(
+                collection_name, document_data, payload
+            )
             if data_inserted:
-                response_data["SUCCESS"] = payload
-            response_data = {"DELETED_IDS": data_deleted}
+                response_data = {
+                    "DELETED_IDS": data_deleted,
+                    "SUCCESS": "Data inserted successfully",
+                }
+            else:
+                response_data = {
+                    "DELETED_IDS": data_deleted,
+                    "ERROR": "Failed to insert data",
+                }
             return Response(response_data, status=status.HTTP_200_OK)
         else:
             return Response(

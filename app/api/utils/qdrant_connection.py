@@ -9,14 +9,11 @@ Returns:
     Connection: A connection object to the Qdrant server.
 """
 
+import requests
 import os
 import logging
-import time
-from typing import List
-import re
 import json
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import Filter, FieldCondition, MatchText
 from app.settings import EMBEDDINGS_MODEL, TEXT_FIELD_NAME
 
 logger = logging.getLogger(__name__)
@@ -168,38 +165,44 @@ class QdrantConnection:
         Returns:
             bool: True if the deletion was successful, False otherwise.
         """
+        payload = {
+            "payload": {
+                "filter": {
+                    "must": [
+                        {"key": key, "match": {"value": value}}
+                        for key, value in filter_conditions.items()
+                    ]
+                }
+            }
+        }
 
-        logger.debug(
-            f"Updating vector in collection: {collection_name} with filter_conditions: {filter_conditions}"
-        )
-        must_conditions = [
-            models.FieldCondition(key=key, match=models.MatchValue(value=value))
-            for key, value in filter_conditions.items()
-        ]
-        scroll_filter = models.Filter(must=must_conditions)
-        logger.debug(f"Filter conditions: {scroll_filter}")
-        records, point_ids = self.client.scroll(
-            collection_name=collection_name,
-            scroll_filter=scroll_filter,
-            limit=100,
-            offset=0,
-            with_payload=True,
-            with_vectors=False,
-        )
+        logger.debug(f"Payload for scroll request: {payload}")
 
-        if records:
-            logger.debug(f"Records found: {records}")
-            point_ids = [record.id for record in records]
+        try:
+            qdrant_url = os.environ.get("QDRANT_URL", "http://localhost")
+            qdrant_port = os.environ.get("QDRANT_PORT", "6333")
+            scroll_response = requests.post(
+                f"{qdrant_url}:{qdrant_port}/collections/{collection_name}/points/scroll",
+                json=payload,
+            ).json()
+
+            logger.debug(f"scroll_response: {scroll_response}")
+
+            if "points" not in scroll_response.get("result", {}):
+                logger.info("No records found matching the conditions.")
+                return False
+
+            point_ids = [point["id"] for point in scroll_response["result"]["points"]]
             self.client.delete(
                 collection_name=collection_name,
-                points_selector=models.PointIdsList(
-                    points=point_ids,
-                ),
+                points_selector=models.PointIdsList(points=point_ids),
             )
             deleted_ids = [str(point_id) for point_id in point_ids]
+            logger.info(f"Successfully deleted records with IDs: {deleted_ids}")
             return deleted_ids
-        else:
-            logger.debug(
-                f"No records found for the given filter conditions: {filter_conditions}"
+
+        except Exception as e:
+            logger.error(f"Error updating data in vector database: {str(e)}")
+            raise Exception(
+                f"Error deleting records from collection {collection_name}: {str(e)}"
             )
-            return False

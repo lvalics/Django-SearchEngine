@@ -129,16 +129,16 @@ http://127.0.0.1:8000/api/update-data/
 
 ```
 {
-  "id_value": "1234",
-  "id_key": "companyID",
-  "id_value2": "news",
-  "id_key2": "category",
+  "filter_conditions": {
+        "companyID": "1772",
+        "type": "primarie"
+    },
   "collection_name": "1_SearchEngineGP",
    "payload": {
-	 "name": "Hyde Park Angels1333",
-     "companyID": "1234",
-     "category": "music"
-   },
+          "name": "Hyde Park Angels1333",
+          "companyID": "1234",
+          "category": "music"
+        },
    "data": {
      "name": "Hyde Park Angels",
      "images": "https://d1qb2nb5cznatu.cloudfront.net/startups/i/61114-35cd9d9689b70b4dc1d0b3c5f11c26e7-thumb_jpg.jpg?buster=1427395222",
@@ -173,6 +173,8 @@ Content-Type: application/json
 ## TO DO 
 
 - Chunk the data to avoid large context.
+- replace JWT session to permanent session type key.
+- dockerize.
 
 def get_chunks(text):
     text_splitter = CharacterTextSplitter(
