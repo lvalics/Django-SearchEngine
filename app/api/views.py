@@ -199,7 +199,7 @@ def update_data_into_vector_database(request):
             if data_inserted:
                 response_data = {
                     "DELETED_IDS": data_deleted,
-                    "SUCCESS": "Data inserted successfully",
+                    "SUCCESS": payload,
                 }
             else:
                 response_data = {
