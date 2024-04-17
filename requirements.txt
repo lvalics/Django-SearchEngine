@@ -10,3 +10,10 @@ sentence-transformers
 qdrant_client
 qdrant-client[fastembed]
 pytest
+PyPDF2
+pdfminer.six
+pdfplumber
+pdf2image
+Pillow
+pytesseract
+poppler

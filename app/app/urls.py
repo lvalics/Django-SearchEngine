@@ -39,4 +39,5 @@ urlpatterns = [
     ),  # http://127.0.0.1:8000/api/docs/
     path("api/", include(app_urls)),  # http://127.0.0.1:8000/api/
     path("", RedirectView.as_view(url="/api/", permanent=False)),
+    path("pdf-ocr-api/", include("pdfocrapi.urls")),
 ]

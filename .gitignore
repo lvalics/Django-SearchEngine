@@ -161,3 +161,4 @@ cython_debug/
 .aider*
 qdrant_demo/*
 test_code.txt
+app/api/demo/a.pdf

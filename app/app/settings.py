@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "djoser",
     "api",
+    "pdfocrapi",
 ]
 
 MIDDLEWARE = [

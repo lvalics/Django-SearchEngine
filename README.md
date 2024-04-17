@@ -162,6 +162,12 @@ response ex:  "auth_token": "49ece790dbf9beaa2901bc8118b20abba1795c8f"
 And you need to send as Authorization: Token 49ece790dbf9beaa2901bc8118b20abba1795c8f
 ```
 
+## PDF - OCR
+
+```
+sudo apt install tesseract-ocr libtesseract-dev poppler-utils
+```
+
 ## TO DO 
 
 - Chunk the data to avoid large context.
