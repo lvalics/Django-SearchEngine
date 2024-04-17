@@ -5,6 +5,7 @@ from django.http import JsonResponse
 import logging
 
 logging.getLogger("pdfminer").setLevel(logging.WARNING)
+logging.getLogger("PIL").setLevel(logging.WARNING)
 from rest_framework.decorators import api_view
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -45,11 +46,9 @@ class OCRView(APIView):
             for chunk in uploaded_file.chunks():
                 destination.write(chunk)
 
-        # Execute the PDF workflow with the path of the uploaded file
-        workflow_results = OCRView.pdfworkflow(temp_pdf_path).content
-        text = {workflow_results.decode("utf-8")}
-
-        return Response({"extracted_text": text}, status=200)
+        # Execute the PDF workflow with the path of the uploaded file and decode the result
+        workflow_results = OCRView.pdfworkflow(temp_pdf_path)
+        return Response({"data": workflow_results}, status=200)
 
     @staticmethod
     def pdfworkflow(pdf_path):
@@ -105,7 +104,6 @@ class OCRView(APIView):
         """
         logger.debug("Starting PDF workflow")
         logger.debug(f"PDF path: {pdf_path}")
-        workflow_results = {"text_extraction": []}  # Initialize workflow results
 
         # create a PDF file object
         pdfFileObj = open(pdf_path, "rb")
@@ -170,13 +168,6 @@ class OCRView(APIView):
                         # Append the format for each line containing text
                         line_format.append(format_per_line)
                         page_content.append(line_text)
-                        workflow_results["text_extraction"].append(
-                            {
-                                "page": pagenum,
-                                "text": line_text,
-                                # "format": format_per_line,
-                            }
-                        )
                     else:
                         # Omit the text that appeared in a table
                         logger.debug("Omitted text in a table")
@@ -188,14 +179,13 @@ class OCRView(APIView):
                         logger.debug("Found an image element, starting OCR process.")
                         # Crop the image from the PDF
                         crop_image(element, pageObj)
-                        logger.debug("Cropped image from PDF.")
                         # Convert the cropped pdf to an image
                         convert_to_images("cropped_image.pdf")
-                        logger.debug("Converted cropped PDF to image.")
                         # Extract the text from the image
                         image_text = image_to_text("PDF_image.png")
                         logger.debug(f"Extracted text from image: {image_text}")
-                        text_from_images.append(image_text)
+                        if image_text.strip():  # Only add non-empty results
+                            text_from_images.append(image_text)
                         page_content.append(image_text)
                         # Indicate that OCR was successfully performed on an image
                         logger.debug("OCR process completed successfully.")
@@ -243,15 +233,21 @@ class OCRView(APIView):
                         table_num += 1
 
             # Create the key of the dictionary
-            dctkey = "Page_" + str(pagenum)
-            # Add the list of list as the value of the page key
-            text_per_page[dctkey] = [
-                page_text,
-                line_format,
-                text_from_images,
-                text_from_tables,
-                page_content,
+            dctkey = "Page_" + str(pagenum + 1)
+            # Filter out empty lists from the page content before adding it to the dictionary
+            filtered_page_content = [
+                content
+                for content in [
+                    page_text,
+                    line_format,
+                    text_from_images,
+                    text_from_tables,
+                    page_content,
+                ]
+                if content
             ]
+            # Add the list of list as the value of the page key
+            text_per_page[dctkey] = filtered_page_content
             logger.debug(f"Completed processing for page {pagenum}")
 
         # Closing the pdf file object
@@ -265,42 +261,9 @@ class OCRView(APIView):
         if os.path.exists("PDF_image.png"):
             os.remove("PDF_image.png")
 
-        # Display the content of the page
-        result = ""
-        for page_key in text_per_page:
-            result += "".join(text_per_page[page_key][4]) + "\n\n"
-        logger.debug(f"Final result: {result}")
-
-        for pagenum, page in enumerate(extract_pages(pdf_path)):
-
-            # Iterate the elements that composed a page
-            for element in page:
-
-                # Check if the element is a text element
-                if isinstance(element, LTTextContainer):
-                    # Function to extract text from the text block
-                    logger.debug("Placeholder for text extraction from text block")
-                    pass
-                    # Function to extract text format
-                    pass
-
-                # Check the elements for images
-                if isinstance(element, LTFigure):
-                    # Function to convert PDF to Image
-                    logger.debug("Placeholder for PDF to image conversion")
-                    pass
-                    # Function to extract text with OCR
-                    pass
-
-                # Check the elements for tables
-                if isinstance(element, LTRect):
-                    # Function to extract table
-                    logger.debug("Placeholder for table extraction")
-                    pass
-                    # Function to convert table content into a string
-                    pass
-
-        return JsonResponse({"RESULT": result}, status=200)
+        # result = "".join(text_per_page["Page_0"][4])
+        result = text_per_page
+        return result
 
 
 if __name__ == "__main__":
