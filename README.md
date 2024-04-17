@@ -18,26 +18,14 @@ Create a .env file in the root directory of the project and populate it with the
 SECRET_KEY='django-add_a_random_string_here'
 ALLOWED_HOSTS=['127.0.0.1,0.0.0.0']  #your IP to allow to do requests
 EMBEDDINGS_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+VECTOR_SIZE=1536
+QDRANT_URL="http://localhost" #your qdrant URL
+QDRANT_PORT="6333"
 ```
 
 # Workflow Description
 
 This API retrieves requests from various sources and creates records in the QDrant Vector Database within a designated collection, each with a payload. It is essential to define the payload for each API. Payloads should contain key information (e.g., filename, categories) that will be used for identification and response purposes.
-
-# Additional resources
-
-For further information and assistance with Django and the Django REST Framework, refer to the following resources:
-
-## Django Documentation
-https://www.django-rest-framework.org/tutorial/quickstart/
-
-https://github.com/encode/django-rest-framework
-
-https://djangopackages.org/
-
-https://docs.djangoproject.com/en/5.0/
-
-https://blog.logrocket.com/django-rest-framework-create-api/
 
 ## Qdrant
 To start QDrant with two ports for improved performance, you can use the following command:
@@ -51,10 +39,10 @@ docker run -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage:z 
 To ensure the search includes the collection name and the search value, you should structure your API endpoint like this:
 
 ```
-http://127.0.0.1:8000/api/search?q=Chicago&collection_name=1_SearchEngineGP
+http://127.0.0.1:8000/api/search?q=Chicago&collection_name=1_SearchEngineGP&&type=neural
 ```
 
-This URL will make a request to the search API at the given local address (127.0.0.1) on port 8000. The query parameters q and collection_name are used to specify the search term ("Chicago") and the collection name ("1_SearchEngineGP"), respectively.
+This URL will make a request to the search API at the given local address (127.0.0.1) on port 8000. The query parameters q and collection_name are used to specify the search term ("Chicago") and the collection name ("1_SearchEngineGP"), neural search.
 
 ## Create a superuser in Django
 
@@ -155,12 +143,12 @@ http://127.0.0.1:8000/api/update-data/
 
 ## Create Refresh Token
 
-To send a username and password to the Django backend for authentication, you would typically make a POST request to the /auth/jwt/create/ endpoint. Here's how you can structure this request: http://127.0.0.1:8000/auth/jwt/create/
+To send a username and password to the Django backend for authentication, you would typically make a POST request to the /auth/jwt/create/ endpoint. Here's how you can structure this request: http://127.0.0.1:8000/auth/token/login/
 
 TODO: Implement a mechanism for a non-expiring key. Currently, JWTs typically expire after a set duration for security reasons.
 
 ```
-POST /auth/jwt/create/ HTTP/1.1
+POST /auth/token/login/ HTTP/1.1
 Host: 127.0.0.1:8000
 Content-Type: application/json
 
@@ -168,12 +156,15 @@ Content-Type: application/json
   "username": "your_username",
   "password": "your_password"
 }
+
+response ex:  "auth_token": "49ece790dbf9beaa2901bc8118b20abba1795c8f"
+
+And you need to send as Authorization: Token 49ece790dbf9beaa2901bc8118b20abba1795c8f
 ```
 
 ## TO DO 
 
 - Chunk the data to avoid large context.
-- replace JWT session to permanent session type key.
 - dockerize.
 
 def get_chunks(text):

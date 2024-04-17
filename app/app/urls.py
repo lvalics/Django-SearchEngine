@@ -28,7 +28,6 @@ urlpatterns = [
         "api-auth/", include("rest_framework.urls")
     ),  # http://127.0.0.1:8000/api-auth/
     path("auth/", include("djoser.urls")),
-    path("auth/", include("djoser.urls.jwt")),  # http://127.0.0.1:8000/auth/
     path("auth/", include("djoser.urls.authtoken")),
     path(
         "api/schema/", SpectacularAPIView.as_view(), name="schema"

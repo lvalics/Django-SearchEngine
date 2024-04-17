@@ -20,16 +20,13 @@ from rest_framework import status
 from rest_framework.decorators import (
     api_view,
     permission_classes,
-    authentication_classes,
 )
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.views.decorators.csrf import csrf_exempt
 from api.utils.qdrant_connection import QdrantConnection
 from api.utils.neural_search import NeuralSearcher
 from api.utils.text_search import TextSearcher
 from api.serializers import MessageSerializer
-from app.permissions import IsOwner
 
 
 logger = logging.getLogger(__name__)
@@ -40,9 +37,7 @@ class HelloWorldApiView(APIView):
     View to return "Hello World" response.
     """
 
-    authentication_classes = (JWTAuthentication,)
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated, IsOwner]
 
     @staticmethod
     def get(_):
@@ -51,7 +46,6 @@ class HelloWorldApiView(APIView):
 
 
 @api_view(["POST"])
-@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 @csrf_exempt
 def create_qdrant_collection_name(request):
@@ -89,7 +83,6 @@ def create_qdrant_collection_name(request):
 
 
 @api_view(["POST"])
-@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 @csrf_exempt
 def embed_data_into_vector_database(request):
@@ -136,7 +129,6 @@ def embed_data_into_vector_database(request):
 
 
 @api_view(["POST"])
-@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 @csrf_exempt
 def update_data_into_vector_database(request):
