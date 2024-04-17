@@ -3,6 +3,8 @@ import pdfplumber
 import PyPDF2
 from django.http import JsonResponse
 import logging
+
+logging.getLogger("pdfminer").setLevel(logging.WARNING)
 from rest_framework.decorators import api_view
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -36,31 +38,79 @@ class OCRView(APIView):
 
         # Execute the PDF workflow
         # Save the uploaded file to a temporary path
-        temp_pdf_path = "/tmp/uploaded_file.pdf"  # Consider using a more dynamic path or handling
-        with open(temp_pdf_path, 'wb+') as destination:
+        temp_pdf_path = (
+            "/tmp/uploaded_file.pdf"  # Consider using a more dynamic path or handling
+        )
+        with open(temp_pdf_path, "wb+") as destination:
             for chunk in uploaded_file.chunks():
                 destination.write(chunk)
 
         # Execute the PDF workflow with the path of the uploaded file
-        OCRView.pdfworkflow(temp_pdf_path)
-        text = "PDF workflow executed. Replace this with actual output if needed."
+        workflow_results = OCRView.pdfworkflow(temp_pdf_path).content
+        text = {workflow_results.decode("utf-8")}
 
         return Response({"extracted_text": text}, status=200)
 
     @staticmethod
     def pdfworkflow(pdf_path):
+        """
+        The `OCRView.pdfworkflow()` method in `app/pdfocrapi/views.py` is
+        designed to process a PDF file and extract various types of content
+        from it, including text, images, and tables. Here's a step-by-step
+        description of what happens inside this method:
+
+        1. **Initialization and Logging**: The method starts by logging the
+        beginning of the PDF workflow and the path of the PDF file being processed.
+
+        2. **Opening the PDF File**: It opens the PDF file using
+        `PyPDF2.PdfReader` to create a PDF reader object for accessing
+        the pages of the PDF.
+
+        3. **Preparing for Content Extraction**: Initializes a dictionary
+        `text_per_page` to store the extracted content from each page. It then
+        iterates through each page of the PDF using `extract_pages` from `pdfminer`.
+
+        4. **Processing Each Page**: For each page, it initializes several
+        lists to hold different types of extracted content (`page_text`, `line_format`,
+        `text_from_images`, `text_from_tables`, `page_content`) and flags for
+        table extraction control.
+
+        5. **Element Analysis and Extraction**:
+           - **Text Extraction**: For text elements (`LTTextContainer`), it extracts
+           the text and its format using the `text_extraction` function and appends
+           this information to the respective lists.
+           - **Image Extraction and OCR**: For image elements (`LTFigure`), it crops
+           the image from the PDF, converts the cropped PDF to an image file, and then
+           uses OCR (Optical Character Recognition) to extract text from the image,
+           appending the results to the lists.
+           - **Table Extraction**: For table elements (`LTRect`), it identifies tables,
+           extracts their content using `extract_table` and `table_converter` functions,
+           and appends the structured string format of the table content to the lists.
+
+        6. **Compiling Page Content**: After processing all elements on a page,
+        it compiles the extracted content into the `text_per_page` dictionary,
+        keyed by page number.
+
+        7. **Cleanup**: Closes the PDF file object and deletes any temporary files
+        created during the process (e.g., cropped images).
+
+        8. **Logging and Returning Results**: Logs the completion of the process for
+        each page and the entire workflow. Finally, it returns a JSON response indicating
+        the completion of the PDF workflow.
+
+        This method is a comprehensive approach to handling PDF content, utilizing both
+        `pdfminer` for text and layout analysis and `PyPDF2` for PDF manipulation, along
+        with `pdfplumber` for table extraction and `PIL`/`pdf2image` for image handling
+        and OCR via `pytesseract`.
+        """
         logger.debug("Starting PDF workflow")
-
-
         logger.debug(f"PDF path: {pdf_path}")
+        workflow_results = {"text_extraction": []}  # Initialize workflow results
 
         # create a PDF file object
         pdfFileObj = open(pdf_path, "rb")
-        logger.debug("PDF file opened")
         # create a PDF reader object
         pdfReaded = PyPDF2.PdfReader(pdfFileObj)
-
-        logger.debug("PDF reader object created")
 
         # Create the dictionary to extract text from each image
         text_per_page = {}
@@ -120,6 +170,13 @@ class OCRView(APIView):
                         # Append the format for each line containing text
                         line_format.append(format_per_line)
                         page_content.append(line_text)
+                        workflow_results["text_extraction"].append(
+                            {
+                                "page": pagenum,
+                                "text": line_text,
+                                # "format": format_per_line,
+                            }
+                        )
                     else:
                         # Omit the text that appeared in a table
                         logger.debug("Omitted text in a table")
@@ -127,21 +184,26 @@ class OCRView(APIView):
 
                 # Check the elements for images
                 if isinstance(element, LTFigure):
-                    logger.debug("Found an image element")
-                    # Crop the image from the PDF
-                    crop_image(element, pageObj)
-                    logger.debug("Cropped image from PDF")
-                    # Convert the cropped pdf to an image
-                    convert_to_images("cropped_image.pdf")
-                    logger.debug("Converted cropped PDF to image")
-                    # Extract the text from the image
-                    image_text = image_to_text("PDF_image.png")
-                    logger.debug(f"Extracted text from image: {image_text}")
-                    text_from_images.append(image_text)
-                    page_content.append(image_text)
-                    # Add a placeholder in the text and format lists
-                    page_text.append("image")
-                    line_format.append("image")
+                    try:
+                        logger.debug("Found an image element, starting OCR process.")
+                        # Crop the image from the PDF
+                        crop_image(element, pageObj)
+                        logger.debug("Cropped image from PDF.")
+                        # Convert the cropped pdf to an image
+                        convert_to_images("cropped_image.pdf")
+                        logger.debug("Converted cropped PDF to image.")
+                        # Extract the text from the image
+                        image_text = image_to_text("PDF_image.png")
+                        logger.debug(f"Extracted text from image: {image_text}")
+                        text_from_images.append(image_text)
+                        page_content.append(image_text)
+                        # Indicate that OCR was successfully performed on an image
+                        logger.debug("OCR process completed successfully.")
+                    except Exception as e:
+                        logger.error(f"Error during OCR process: {str(e)}")
+                        # Append error message to indicate OCR process failure
+                        text_from_images.append("Error during OCR process.")
+                        page_content.append("Error during OCR process.")
 
                 # Check the elements for tables
                 if isinstance(element, LTRect):
@@ -198,11 +260,15 @@ class OCRView(APIView):
         logger.debug("Closed PDF file object")
 
         # Deleting the additional files created
-        os.remove("cropped_image.pdf")
-        os.remove("PDF_image.png")
+        if os.path.exists("cropped_image.pdf"):
+            os.remove("cropped_image.pdf")
+        if os.path.exists("PDF_image.png"):
+            os.remove("PDF_image.png")
 
         # Display the content of the page
-        result = "".join(text_per_page["Page_0"][4])
+        result = ""
+        for page_key in text_per_page:
+            result += "".join(text_per_page[page_key][4]) + "\n\n"
         logger.debug(f"Final result: {result}")
 
         for pagenum, page in enumerate(extract_pages(pdf_path)):
@@ -234,8 +300,7 @@ class OCRView(APIView):
                     # Function to convert table content into a string
                     pass
 
-        logger.debug("PDF workflow completed")
-        return JsonResponse({"message": "PDF workflow completed."}, status=200)
+        return JsonResponse({"RESULT": result}, status=200)
 
 
 if __name__ == "__main__":
