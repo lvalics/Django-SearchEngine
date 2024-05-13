@@ -20,16 +20,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-COPY . $APP_DIR
+COPY ./requirements.txt $APP_DIR
+COPY $APP_DIR $APP_DIR
 # Install any needed packages specified in requirements.txt
 # RUN pip install uv && uv venv
 RUN pip install --upgrade pip
 
 RUN pip install --no-cache-dir -r $APP_DIR/requirements.txt
 
-EXPOSE 8000
+EXPOSE 8008
 # Run migrations on startup
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8008"]
 
 # COPY ./entrypoint.sh /entrypoint.sh
 # RUN chmod +x /entrypoint.sh

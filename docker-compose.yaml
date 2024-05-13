@@ -1,11 +1,9 @@
-version: '3.11'
-
 services:
   web:
     build: .
     container_name: dj_search_engine
     ports:
-      - "8000:8000"
+      - "8008:8008"
     depends_on:
       - qdrant
     env_file:

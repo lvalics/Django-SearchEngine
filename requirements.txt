@@ -16,4 +16,4 @@ pdfplumber
 pdf2image
 Pillow
 pytesseract
-poppler
+#poppler
