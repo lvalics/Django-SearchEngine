@@ -1,32 +1,36 @@
-# Dockerfile is based on the following tutorial:
-# https://www.erraticbits.ca/post/2021/fastapi/
+FROM python:3.12-slim
 
-FROM python:3.11-slim-bookworm
-
-RUN apt-get update -y && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+# Define a build-time variable
+ARG APP_DIR=/app
+ENV APP_DIR=${APP_DIR}
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
-ENV DJANGO_SETTINGS_MODULE=app.settings
+ENV PYTHONPATH $APP_DIR
+# ENV DJANGO_SETTINGS_MODULE=backend.settings
 
-# Install poetry for packages management
-RUN  pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+# Set work directory
+WORKDIR $APP_DIR
 
-# Use /app as the working directory
-WORKDIR /app
+# Install system dependencies for mysqlclient
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy poetry files & install the dependencies
-COPY ./pyproject.toml /app
-COPY ./poetry.lock /app
-COPY --from=build-step /app/dist /app/static
+# Install dependencies
+COPY . $APP_DIR
+# Install any needed packages specified in requirements.txt
+# RUN pip install uv && uv venv
+RUN pip install --upgrade pip
 
-RUN poetry install --no-interaction --no-ansi --no-root --without dev
-RUN python -c 'from fastembed.embedding import DefaultEmbedding; DefaultEmbedding("sentence-transformers/all-MiniLM-L6-v2")'
-
-# Finally copy the application source code and install root
-COPY /app/ /app/
+RUN pip install --no-cache-dir -r $APP_DIR/requirements.txt
 
 EXPOSE 8000
-CMD ["sh", "-c", "python manage.py createsuperuser admin && python manage.py runserver 0.0.0.0:8000"]
+# Run migrations on startup
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
 
+# COPY ./entrypoint.sh /entrypoint.sh
+# RUN chmod +x /entrypoint.sh
+# ENTRYPOINT ["/entrypoint.sh"]

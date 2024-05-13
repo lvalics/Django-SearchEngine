@@ -22,9 +22,12 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - ./data/qdrant_storage:/qdrant/storage
+      - db-data:/qdrant/storage
     networks:
       - dj_network
 
 networks:
   dj_network:
+
+volumes:
+  db-data:
